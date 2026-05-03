@@ -61,3 +61,7 @@ whale_bot.log
 certs/
 whale_trades.jsonl
 backtest_artifacts/
+# Machine-local helper scripts (may contain local paths/secrets)
+daily_report.sh
+start.sh
+*.bak-*
