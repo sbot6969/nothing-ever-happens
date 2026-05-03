@@ -68,6 +68,27 @@ def test_dashboard_portfolio_message_clearly_reports_paper_runtime(monkeypatch):
     }
 
 
+def test_dashboard_portfolio_message_clearly_reports_live_runtime(monkeypatch):
+    monkeypatch.setenv("BOT_MODE", "live")
+    monkeypatch.setenv("LIVE_TRADING_ENABLED", "true")
+    monkeypatch.setenv("DRY_RUN", "false")
+    monkeypatch.setenv("BOT_VARIANT", "nothing_happens")
+    portfolio_state = _make_portfolio_state()
+    server = DashboardServer(port=0, portfolio_state=portfolio_state)
+
+    message = server._make_portfolio_message(force=True)
+
+    assert message["runtime"] == {
+        "variant": "nothing_happens",
+        "mode": "live",
+        "bot_mode": "live",
+        "live_send_enabled": True,
+        "live_trading_enabled": True,
+        "dry_run": False,
+        "label": "LIVE SEND ENABLED",
+    }
+
+
 
 
 def test_dashboard_portfolio_message_includes_finalization_info():
