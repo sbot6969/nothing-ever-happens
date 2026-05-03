@@ -5,6 +5,19 @@ import pytest
 from bot.config import load_nothing_happens_config
 
 
+@pytest.fixture(autouse=True)
+def _clear_live_env(monkeypatch):
+    """Config tests must not inherit operator live-trading environment."""
+    for name in (
+        "BOT_MODE",
+        "LIVE_TRADING_ENABLED",
+        "DRY_RUN",
+        "PRIVATE_KEY",
+        "FUNDER_ADDRESS",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+
 def _write_config(tmp_path, payload) -> str:
     path = tmp_path / "config.json"
     path.write_text(json.dumps(payload))
