@@ -139,13 +139,13 @@ Safety gate: **no live capital transfer, wallet funding, position closing, or li
 
 ## 7. Internet/open-source research
 
-- [ ] Survey open-source Polymarket bots and tools:
-  - [ ] GitHub repositories using Polymarket CLOB/Data API
-  - [ ] arbitrage bots
-  - [ ] market-making bots
-  - [ ] copy-trading/whale-monitoring bots
+- [x] Survey open-source Polymarket bots and tools:
+  - [x] GitHub repositories using Polymarket CLOB/Data API
+  - [x] arbitrage bots
+  - [x] market-making bots
+  - [x] copy-trading/whale-monitoring bots
   - [ ] resolution/redeemer bots
-- [ ] For each candidate repo, record:
+- [x] For each candidate repo, record:
   - [ ] URL/name/license/activity
   - [ ] strategy type
   - [ ] whether code is actually usable/profile/profitable-looking
@@ -240,3 +240,9 @@ Blocked until explicit typed confirmation.
 - Best iteration: iteration 5 calibration overlay.
 - Best ROI/PnL: 235.91% / $94.17, but only 5 copied trades and high overfit risk.
 - Recommendation: do not launch live; continue paper and larger walk-forward/order-book backtests.
+
+
+## Open-source survey result
+
+- See `docs/whale_copy_research/OPEN_SOURCE_SURVEY.md`.
+- Most popular search results look high-risk/SEO-spam; do not run them with secrets. Borrow only audited concepts.
