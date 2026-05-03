@@ -27,3 +27,26 @@ Completion route: Telegram `@sbot_finances_bot` only. Do not use Telegram chat `
 ## Completion send attempts
 - `openclaw message send --channel telegram --target '@sbot_finances_bot' ...` failed: recipient could not be resolved to a numeric chat ID (`getChat` 400 chat not found).
 - Per latest operator instruction, no messages were sent to Telegram chat `707939820`.
+
+## 2026-05-03 — Continue all voice-note tasks
+
+Goal: finish whale-copy validation/backtest/research work without live financial actions.
+
+- [x] Build/reuse historical Polymarket data downloader/cache for closed markets and market trades.
+- [x] Run reproducible backtests across baseline + 5 improvement iterations.
+- [x] Record PnL/ROI, drawdown, hit-rate, and recommendation.
+- [x] Expand tests for downloader/experiment logic.
+- [x] Update MASTER_TODO/backtest report/research docs.
+- [x] Run full pytest.
+- [ ] Commit and push.
+- [x] Keep main/whale bots alive and paper/live safety intact.
+
+Safety: no wallet funding, position closing, transfer, or live copy order.
+
+
+Review / result:
+- Downloaded public snapshot: 80 closed markets, 7,697 trades, 160 resolution assets.
+- Ran baseline + 5 iterations. Best cached-sample result: iteration 5, ROI 235.91%, PnL $94.17 on 5 copied trades.
+- Caveat: high overfit/small sample; recommendation remains paper-only until walk-forward/order-book validation.
+- Full pytest: 183 passed, 1 warning.
+- Runtime verified: main_count=1, whale_count=1, both dashboards OK.

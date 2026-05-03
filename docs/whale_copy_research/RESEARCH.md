@@ -112,3 +112,21 @@ User suggested unknown-outcome markets where distributions should be “normal.�
 ## Bottom line
 
 Do not fund live whale-copy until the backtest framework can reproduce signal selection and settlement PnL. The likely highest-value work now is not adding more live features, but making results falsifiable.
+
+## Backtest iteration update — 2026-05-03
+
+A public-data snapshot was downloaded from Gamma closed markets + Data API market trades:
+
+- Markets saved: 80 recent closed binary markets with final 0/1 outcome prices.
+- Trades saved: 7,697 market trades.
+- Resolution assets: 160 CLOB token IDs.
+- Snapshot artifact: `artifacts/whale_copy/closed_recent_80/` (ignored local artifact; not committed).
+
+Important caveats:
+
+- `history_count` in this snapshot is first-visible inside the downloaded sample, not a global “wallet first trade ever” proof.
+- Closed markets often report current liquidity as zero after settlement, so the backtest avoids using post-close liquidity as a zero execution cap; volume is only a rough activity proxy.
+- Iteration 5 crosses 100% ROI only on 5 copied signals. Treat it as an overfit research lead, not launch evidence.
+- Real CEX/Polymarket 5m arbitrage and YES/NO normalization need timestamped order-book snapshots; this snapshot does not prove executable arbitrage.
+
+Recommendation: keep whale-copy paper-only; expand to larger walk-forward snapshots and order-book history before any live funding.

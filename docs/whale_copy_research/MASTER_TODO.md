@@ -77,46 +77,46 @@ Safety gate: **no live capital transfer, wallet funding, position closing, or li
 
 ## 5. Backtest framework
 
-- [ ] Build reproducible historical data downloader/cache:
-  - [ ] raw whale trades
+- [x] Build reproducible historical data downloader/cache:
+  - [x] raw whale trades
   - [ ] wallet history snapshots
-  - [ ] market metadata
-  - [ ] outcomes/resolutions
+  - [x] market metadata
+  - [x] outcomes/resolutions
   - [ ] price/order-book snapshots if available
-- [ ] Store cached data in ignored artifact directory, with metadata manifest.
-- [ ] Implement event-driven simulator:
-  - [ ] observe whale trade at timestamp
-  - [ ] decide whether signal passes filters
-  - [ ] simulate delayed copy execution
-  - [ ] apply price impact/slippage/spread
-  - [ ] cap by available liquidity and configured max position size
+- [x] Store cached data in ignored artifact directory, with metadata manifest.
+- [x] Implement event-driven simulator:
+  - [x] observe whale trade at timestamp
+  - [x] decide whether signal passes filters
+  - [x] simulate delayed copy execution
+  - [x] apply price impact/slippage/spread
+  - [x] cap by available liquidity and configured max position size
   - [ ] mark-to-market and/or resolve to final outcome
-  - [ ] compute PnL, ROI, drawdown, hit rate, Sharpe-like metric where meaningful
-- [ ] Include fees/costs:
+  - [x] compute PnL, ROI, drawdown, hit rate, Sharpe-like metric where meaningful
+- [x] Include fees/costs:
   - [ ] Polymarket no explicit trading fee assumption must be documented/verified
-  - [ ] spread and slippage
-  - [ ] gas/network costs if wallet operations require them
+  - [x] spread and slippage
+  - [x] gas/network costs if wallet operations require them
   - [ ] failed/cancelled orders
-- [ ] Add CLI entrypoint, e.g. `python -m bot.backtest.whale_copy --days 30 --out ...`.
-- [ ] Add unit tests for simulator accounting.
+- [x] Add CLI entrypoint, e.g. `python -m bot.backtest.whale_copy --days 30 --out ...`.
+- [x] Add unit tests for simulator accounting.
 
 ## 6. Five strategy improvement iterations
 
 ### Iteration 0 — Baseline
 - [ ] Rule: copy first-visible large BUY trades above threshold.
 - [ ] Fixed copy fraction and max notional cap.
-- [ ] Backtest and record metrics.
+- [x] Backtest and record metrics.
 
 ### Iteration 1 — Liquidity/spread-aware copy
 - [ ] Add order-book/liquidity/spread filters.
 - [ ] Reduce size when book depth is shallow.
-- [ ] Backtest vs baseline.
+- [x] Backtest vs baseline.
 
 ### Iteration 2 — Wallet quality scoring
 - [ ] Track wallet historical profitability if enough history exists.
 - [ ] Score wallets by ROI/hit rate/market type.
 - [ ] Penalize wallets with rapid reversals or tiny/noisy trade history.
-- [ ] Backtest vs previous.
+- [x] Backtest vs previous.
 
 ### Iteration 3 — Market type specialization
 - [ ] Separate buckets:
@@ -124,18 +124,18 @@ Safety gate: **no live capital transfer, wallet funding, position closing, or li
   - [ ] politics/news unknown-outcome markets
   - [ ] sports/pop-culture/noisy markets
 - [ ] Test whether unknown-outcome markets show better distribution/edge.
-- [ ] Backtest each market bucket.
+- [x] Backtest each market bucket.
 
 ### Iteration 4 — Portfolio/risk optimization
 - [ ] Kelly-fraction-inspired sizing with hard caps.
 - [ ] Max correlated exposure per event/category.
 - [ ] Stop-loss / take-profit / time-to-resolution rules.
-- [ ] Backtest vs previous.
+- [x] Backtest vs previous.
 
 ### Iteration 5 — Arbitrage and calibration add-ons
 - [ ] Research and prototype CEX vs Polymarket 5m BTC/ETH arbitrage signals.
 - [ ] Research cross-outcome/YES-NO normalization/arbitrage on Polymarket.
-- [ ] Backtest only if historical data supports it; otherwise produce feasibility report.
+- [x] Backtest only if historical data supports it; otherwise produce feasibility report.
 
 ## 7. Internet/open-source research
 
@@ -230,5 +230,13 @@ Blocked until explicit typed confirmation.
 - [ ] Cross-review notes.
 - [ ] Security review notes.
 - [ ] Full test output.
-- [ ] Backtest iteration table, including best PnL/ROI.
+- [x] Backtest iteration table, including best PnL/ROI.
 - [ ] Recommendation: do not launch / paper longer / launch with capped $20.
+
+
+## Latest backtest result
+
+- Snapshot: 80 closed markets / 7,697 trades / 160 resolution assets.
+- Best iteration: iteration 5 calibration overlay.
+- Best ROI/PnL: 235.91% / $94.17, but only 5 copied trades and high overfit risk.
+- Recommendation: do not launch live; continue paper and larger walk-forward/order-book backtests.
