@@ -17,7 +17,9 @@ from bot.standalone_markets import StandaloneMarket
 from bot.standalone_markets import fetch_all_open_markets
 from bot.standalone_markets import fetch_candidate_markets
 from bot.strategy.nothing_happens import (
+    EntryPlan,
     NothingHappensRuntime,
+    _bid_ask_spread,
     _fetch_open_positions,
     _max_notional_within_price,
 )
@@ -287,6 +289,83 @@ class StubGammaSession:
         self.calls += 1
         return response
 
+
+
+
+def test_bid_ask_spread_uses_top_of_book() -> None:
+    book = _make_book(token_id="token-1", ask_price=0.62, bid_price=0.59)
+
+    assert _bid_ask_spread(book) == pytest.approx(0.03)
+
+
+def test_next_due_pending_entry_prioritizes_highest_quality_score() -> None:
+    runtime = _make_runtime()
+    low = _make_market(slug="low-score")
+    high = _make_market(slug="high-score")
+    runtime._enqueue_pending_entry(
+        low,
+        EntryPlan(no_ask=0.64, target_notional=5.0, score=0.10, spread=0.03, best_ask_depth_usd=10.0),
+    )
+    runtime._enqueue_pending_entry(
+        high,
+        EntryPlan(no_ask=0.50, target_notional=5.0, score=0.90, spread=0.01, best_ask_depth_usd=25.0),
+    )
+
+    assert runtime._next_due_pending_entry().market.slug == "high-score"
+
+
+@pytest.mark.asyncio
+async def test_build_entry_plan_filters_wide_spreads_and_thin_best_ask() -> None:
+    market = _make_market(slug="wide-spread")
+    exchange = StubExchange(
+        order_books={
+            market.no_token_id: _make_book(
+                token_id=market.no_token_id,
+                ask_price=0.60,
+                ask_size=4.0,
+                bid_price=0.50,
+            )
+        }
+    )
+    runtime = _make_runtime(
+        exchange=exchange,
+        cfg=NothingHappensConfig(max_bid_ask_spread=0.05, min_best_ask_depth_usd=5.0),
+    )
+    runtime._cash_balance = 100.0
+
+    assert await runtime._build_entry_plan(market, exchange.order_books[market.no_token_id], enforce_risk=False) is None
+
+
+@pytest.mark.asyncio
+async def test_build_entry_plan_scores_and_sizes_better_markets_larger_when_enabled() -> None:
+    market = _make_market(slug="good-depth")
+    exchange = StubExchange(
+        order_books={
+            market.no_token_id: _make_book(
+                token_id=market.no_token_id,
+                ask_price=0.50,
+                ask_size=50.0,
+                bid_price=0.49,
+            )
+        }
+    )
+    runtime = _make_runtime(
+        exchange=exchange,
+        cfg=NothingHappensConfig(
+            cash_pct_per_trade=0.05,
+            min_trade_amount=5.0,
+            dynamic_position_sizing_enabled=True,
+            edge_size_multiplier=1.0,
+            max_trade_amount=8.0,
+        ),
+    )
+    runtime._cash_balance = 100.0
+
+    plan = await runtime._build_entry_plan(market, exchange.order_books[market.no_token_id], enforce_risk=False)
+
+    assert plan is not None
+    assert plan.score > 0.0
+    assert 5.0 < plan.target_notional <= 8.0
 
 def test_max_notional_within_price_only_counts_safe_asks() -> None:
     book = OrderBookSnapshot(

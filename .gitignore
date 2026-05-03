@@ -54,3 +54,10 @@ resolved_markets.json
 reconstruct_pnl_actual.csv
 *.parquet
 .claude/
+# Local runtime artifacts
+bot.log
+whale_bot.log
+*.db
+certs/
+whale_trades.jsonl
+backtest_artifacts/

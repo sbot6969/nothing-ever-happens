@@ -80,7 +80,15 @@ def _write_record(record: dict) -> None:
     except Exception:
         pass
 
-    # 3. Local file — for local dev and dashboard tailing
+    # 3. Best-effort Telegram finance notifications.
+    try:
+        from bot.finance_notifier import notify_event
+
+        notify_event(record)
+    except Exception:
+        pass
+
+    # 4. Local file — for local dev and dashboard tailing
     _open_ledger()
     if _ledger_fd is None:
         return

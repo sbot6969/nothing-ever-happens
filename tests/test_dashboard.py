@@ -7,7 +7,7 @@ import pytest
 
 from bot.dashboard import DashboardServer
 from bot.nothing_happens_control import NothingHappensControlState
-from bot.portfolio_state import PortfolioState
+from bot.portfolio_state import PortfolioState, PositionSnapshot
 
 
 def _make_portfolio_state() -> PortfolioState:
@@ -48,6 +48,47 @@ def test_dashboard_force_portfolio_snapshot_replays_latest_state():
     assert second["in_range_markets"] == 3
 
 
+
+
+def test_dashboard_portfolio_message_includes_finalization_info():
+    portfolio_state = PortfolioState()
+    portfolio_state.update(
+        updated_at_us=1,
+        monitored_markets=1,
+        eligible_markets=1,
+        in_range_markets=1,
+        positions=[
+            PositionSnapshot(
+                slug="ended-market",
+                title="Ended market",
+                outcome="No",
+                asset="token",
+                condition_id="condition",
+                size=10.0,
+                avg_price=0.5,
+                initial_value=5.0,
+                current_price=0.0,
+                current_value=0.0,
+                pnl_usd=-5.0,
+                pnl_pct=-100.0,
+                end_date="2026-05-03T19:00:00Z",
+                eta_seconds=0.0,
+                source="test",
+            )
+        ],
+        cash_balance=1.0,
+        last_market_refresh_ts=1.0,
+        last_position_sync_ts=1.0,
+        last_price_cycle_ts=1.0,
+    )
+    server = DashboardServer(port=0, portfolio_state=portfolio_state)
+
+    message = server._make_portfolio_message(force=True)
+
+    assert message["finalization"]["ended_positions"] == 1
+    assert message["positions"][0]["finalization_status"] == "awaiting_resolution"
+    assert message["positions"][0]["finalization_priority"] == 0
+
 @pytest.mark.asyncio
 async def test_dashboard_http_serves_html():
     server = DashboardServer(port=0)
@@ -67,6 +108,7 @@ async def test_dashboard_http_serves_html():
             assert "Dashboard" in text
             assert "Open Positions" in text
             assert "In Range" in text
+            assert "Finalization" in text
 
     await runner.cleanup()
 

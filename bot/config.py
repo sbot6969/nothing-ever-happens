@@ -127,6 +127,13 @@ class NothingHappensConfig:
     fixed_trade_amount: float = 0.0
     max_entry_price: float = 0.65
     allowed_slippage: float = 0.30
+    min_market_volume: float = 0.0
+    min_market_liquidity: float = 0.0
+    max_bid_ask_spread: float = 0.0
+    min_best_ask_depth_usd: float = 0.0
+    dynamic_position_sizing_enabled: bool = False
+    edge_size_multiplier: float = 0.0
+    max_trade_amount: float = 0.0
     request_concurrency: int = 4
     buy_retry_count: int = 3
     buy_retry_base_delay_sec: float = 1.0
@@ -185,6 +192,34 @@ def _load_nothing_happens_config(
         allowed_slippage=_env_float(
             "PM_NH_ALLOWED_SLIPPAGE",
             float(strat.get("allowed_slippage", 0.30)),
+        ),
+        min_market_volume=_env_float(
+            "PM_NH_MIN_MARKET_VOLUME",
+            float(strat.get("min_market_volume", 0.0)),
+        ),
+        min_market_liquidity=_env_float(
+            "PM_NH_MIN_MARKET_LIQUIDITY",
+            float(strat.get("min_market_liquidity", 0.0)),
+        ),
+        max_bid_ask_spread=_env_float(
+            "PM_NH_MAX_BID_ASK_SPREAD",
+            float(strat.get("max_bid_ask_spread", 0.0)),
+        ),
+        min_best_ask_depth_usd=_env_float(
+            "PM_NH_MIN_BEST_ASK_DEPTH_USD",
+            float(strat.get("min_best_ask_depth_usd", 0.0)),
+        ),
+        dynamic_position_sizing_enabled=_env_bool(
+            "PM_NH_DYNAMIC_POSITION_SIZING_ENABLED",
+            bool(strat.get("dynamic_position_sizing_enabled", False)),
+        ),
+        edge_size_multiplier=_env_float(
+            "PM_NH_EDGE_SIZE_MULTIPLIER",
+            float(strat.get("edge_size_multiplier", 0.0)),
+        ),
+        max_trade_amount=_env_float(
+            "PM_NH_MAX_TRADE_AMOUNT_USD",
+            float(strat.get("max_trade_amount", 0.0)),
         ),
         request_concurrency=_env_int(
             "PM_NH_REQUEST_CONCURRENCY",
@@ -248,6 +283,18 @@ def _validate_nothing_happens_config(cfg: NothingHappensConfig) -> None:
         raise ValueError(f"max_entry_price must be in (0, 1.0], got {cfg.max_entry_price}")
     if not (0 < cfg.allowed_slippage <= 1.0):
         raise ValueError(f"allowed_slippage must be in (0, 1.0], got {cfg.allowed_slippage}")
+    if cfg.min_market_volume < 0:
+        raise ValueError(f"min_market_volume must be >= 0, got {cfg.min_market_volume}")
+    if cfg.min_market_liquidity < 0:
+        raise ValueError(f"min_market_liquidity must be >= 0, got {cfg.min_market_liquidity}")
+    if cfg.max_bid_ask_spread < 0:
+        raise ValueError(f"max_bid_ask_spread must be >= 0, got {cfg.max_bid_ask_spread}")
+    if cfg.min_best_ask_depth_usd < 0:
+        raise ValueError(f"min_best_ask_depth_usd must be >= 0, got {cfg.min_best_ask_depth_usd}")
+    if cfg.edge_size_multiplier < 0:
+        raise ValueError(f"edge_size_multiplier must be >= 0, got {cfg.edge_size_multiplier}")
+    if cfg.max_trade_amount < 0:
+        raise ValueError(f"max_trade_amount must be >= 0, got {cfg.max_trade_amount}")
     if cfg.request_concurrency < 1:
         raise ValueError(f"request_concurrency must be >= 1, got {cfg.request_concurrency}")
     if cfg.buy_retry_count < 1:

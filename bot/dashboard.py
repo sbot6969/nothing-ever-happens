@@ -43,6 +43,7 @@ class DashboardServer:
         self._clients: set[web.WebSocketResponse] = set()
         self._last_portfolio_version = -1
         self._last_nothing_happens_control_version = -1
+        self._last_resolution_version = -1
         self._ledger_path = os.getenv("TRADE_LEDGER_PATH", "trades.jsonl")
         self._ledger_pos = 0
         self._trade_history: deque[dict] = deque(maxlen=TRADE_HISTORY_LIMIT)
@@ -51,6 +52,7 @@ class DashboardServer:
         self._last_balance_poll = 0.0
         self._balance_history: deque[tuple[float, float]] = deque(maxlen=BALANCE_HISTORY_LIMIT)
         self._resolutions: dict[str, str] = {}
+        self._resolution_version = 0
         self._pending_resolution_slugs: list[str] = []
         self._last_resolution_poll = 0.0
 
@@ -163,16 +165,19 @@ class DashboardServer:
             not force
             and version == self._last_portfolio_version
             and control_version == self._last_nothing_happens_control_version
+            and self._resolution_version == self._last_resolution_version
         ):
             return None
         self._last_portfolio_version = version
         self._last_nothing_happens_control_version = control_version
+        self._last_resolution_version = self._resolution_version
         snapshot = self._portfolio_state.snapshot()
         control_snapshot = (
             self._nothing_happens_control.snapshot()
             if self._nothing_happens_control is not None
             else None
         )
+        finalization_summary = self._make_finalization_summary(snapshot.positions)
         return {
             "type": "portfolio",
             "updated_at_us": snapshot.updated_at_us,
@@ -197,6 +202,7 @@ class DashboardServer:
                 control_snapshot.opened_this_run if control_snapshot is not None else 0
             ),
             "controls_enabled": control_snapshot is not None,
+            "finalization": finalization_summary,
             "positions": [
                 {
                     "slug": position.slug,
@@ -213,10 +219,63 @@ class DashboardServer:
                     "pnl_pct": round(position.pnl_pct, 6),
                     "end_date": position.end_date,
                     "eta_seconds": round(position.eta_seconds, 3),
+                    "finalization_status": self._finalization_status(position),
+                    "finalization_priority": self._finalization_priority(position),
+                    "resolution_winner": self._resolutions.get(position.slug),
                     "source": position.source,
                 }
                 for position in snapshot.positions
             ],
+        }
+
+    def _finalization_status(self, position) -> str:
+        winner = self._resolutions.get(position.slug)
+        if winner:
+            if str(position.outcome).strip().lower() == str(winner).strip().lower():
+                return "resolved_win"
+            return "resolved_loss"
+        eta = float(position.eta_seconds or 0.0)
+        if eta <= 0:
+            return "awaiting_resolution"
+        if eta <= 24 * 3600:
+            return "ending_soon"
+        return "open"
+
+    def _finalization_priority(self, position) -> int:
+        status = self._finalization_status(position)
+        return {
+            "awaiting_resolution": 0,
+            "ending_soon": 1,
+            "resolved_win": 2,
+            "resolved_loss": 2,
+            "open": 3,
+        }.get(status, 4)
+
+    def _make_finalization_summary(self, positions) -> dict:
+        ended = 0
+        ending_soon = 0
+        resolved = 0
+        next_position = None
+        for position in positions:
+            eta = float(position.eta_seconds or 0.0)
+            status = self._finalization_status(position)
+            if status in {"resolved_win", "resolved_loss"}:
+                resolved += 1
+            elif eta <= 0:
+                ended += 1
+            elif eta <= 24 * 3600:
+                ending_soon += 1
+            if eta > 0 and (next_position is None or eta < float(next_position.eta_seconds or 0.0)):
+                next_position = position
+        return {
+            "ended_positions": ended,
+            "ending_soon_24h": ending_soon,
+            "resolved_positions": resolved,
+            "pending_resolution_count": len(self._pending_resolution_slugs),
+            "next_finalization_slug": next_position.slug if next_position is not None else "",
+            "next_finalization_eta_seconds": (
+                round(float(next_position.eta_seconds), 3) if next_position is not None else None
+            ),
         }
 
     async def _poll_trades(self) -> None:
@@ -298,6 +357,17 @@ class DashboardServer:
             if slug and slug not in self._resolutions and slug not in self._pending_resolution_slugs:
                 self._pending_resolution_slugs.append(slug)
 
+        if self._portfolio_state is not None:
+            for position in self._portfolio_state.snapshot().positions:
+                slug = position.slug
+                if (
+                    slug
+                    and float(position.eta_seconds or 0.0) <= 0
+                    and slug not in self._resolutions
+                    and slug not in self._pending_resolution_slugs
+                ):
+                    self._pending_resolution_slugs.append(slug)
+
         if not self._pending_resolution_slugs:
             return
 
@@ -310,6 +380,7 @@ class DashboardServer:
                     continue
                 display_winner = winner.capitalize()
                 self._resolutions[slug] = display_winner
+                self._resolution_version += 1
                 self._pending_resolution_slugs.remove(slug)
                 await self._broadcast(
                     {
@@ -330,9 +401,19 @@ class DashboardServer:
 
         runner = web.AppRunner(app, access_log=None)
         await runner.setup()
-        site = web.TCPSite(runner, self.host, self.port)
+        ssl_context = None
+        scheme = "http"
+        cert_file = os.getenv("DASHBOARD_SSL_CERT")
+        key_file = os.getenv("DASHBOARD_SSL_KEY")
+        if cert_file and key_file:
+            import ssl
+
+            ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+            ssl_context.load_cert_chain(cert_file, key_file)
+            scheme = "https"
+        site = web.TCPSite(runner, self.host, self.port, ssl_context=ssl_context)
         await site.start()
-        logger.info("Dashboard at http://%s:%d", self.host, self.port)
+        logger.info("Dashboard at %s://%s:%d", scheme, self.host, self.port)
 
         try:
             await self._poll_loop()

@@ -69,6 +69,13 @@ def test_load_nothing_happens_config_applies_env_overrides(tmp_path, monkeypatch
     monkeypatch.setenv("PM_NH_ORDER_DISPATCH_INTERVAL_SEC", "75")
     monkeypatch.setenv("PM_NH_MAX_NEW_POSITIONS", "2")
     monkeypatch.setenv("PM_NH_SHUTDOWN_ON_MAX_NEW_POSITIONS", "true")
+    monkeypatch.setenv("PM_NH_MIN_MARKET_VOLUME", "100")
+    monkeypatch.setenv("PM_NH_MIN_MARKET_LIQUIDITY", "50")
+    monkeypatch.setenv("PM_NH_MAX_BID_ASK_SPREAD", "0.04")
+    monkeypatch.setenv("PM_NH_MIN_BEST_ASK_DEPTH_USD", "6")
+    monkeypatch.setenv("PM_NH_DYNAMIC_POSITION_SIZING_ENABLED", "true")
+    monkeypatch.setenv("PM_NH_EDGE_SIZE_MULTIPLIER", "0.5")
+    monkeypatch.setenv("PM_NH_MAX_TRADE_AMOUNT_USD", "8")
 
     exchange, strategy = load_nothing_happens_config()
 
@@ -77,6 +84,13 @@ def test_load_nothing_happens_config_applies_env_overrides(tmp_path, monkeypatch
     assert strategy.order_dispatch_interval_sec == 75
     assert strategy.max_new_positions == 2
     assert strategy.shutdown_on_max_new_positions is True
+    assert strategy.min_market_volume == 100.0
+    assert strategy.min_market_liquidity == 50.0
+    assert strategy.max_bid_ask_spread == 0.04
+    assert strategy.min_best_ask_depth_usd == 6.0
+    assert strategy.dynamic_position_sizing_enabled is True
+    assert strategy.edge_size_multiplier == 0.5
+    assert strategy.max_trade_amount == 8.0
 
 
 def test_load_nothing_happens_config_validates_bounds(tmp_path, monkeypatch) -> None:

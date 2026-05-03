@@ -458,6 +458,11 @@ th[data-sort].sort-desc::after {
       <div class="value mono" id="last-error">none</div>
       <div class="meta" id="last-market-refresh">market refresh --</div>
     </div>
+    <div class="summary-card">
+      <div class="label">Finalization</div>
+      <div class="value" id="finalization-count">--</div>
+      <div class="meta" id="finalization-meta">waiting for markets</div>
+    </div>
   </div>
 
   <section class="panel control-panel">
@@ -486,11 +491,12 @@ th[data-sort].sort-desc::after {
               <th data-sort="current_value">Market Value</th>
               <th data-sort="pnl_usd">PnL</th>
               <th data-sort="pot_win">Pot. Win</th>
+              <th data-sort="finalization_priority">Finalization</th>
               <th data-sort="eta_seconds">ETA</th>
             </tr>
           </thead>
           <tbody id="positions-body">
-            <tr><td colspan="9" class="empty">No open positions</td></tr>
+            <tr><td colspan="10" class="empty">No open positions</td></tr>
           </tbody>
         </table>
       </div>
@@ -515,6 +521,7 @@ const socketEl = document.getElementById("socket");
 const tradesBody = document.getElementById("trades-body");
 const positionsBody = document.getElementById("positions-body");
 const tradeItems = [];
+const resolutionsBySlug = {};
 let latestPortfolio = null;
 let sortColumn = "eta_seconds";
 let sortDirection = "asc";
@@ -546,7 +553,9 @@ function fmtTime(epochSec) {
 }
 
 function fmtEta(seconds) {
-  const remaining = Math.max(0, Math.floor(Number(seconds || 0)));
+  const raw = Number(seconds || 0);
+  if (raw <= 0) return "ended";
+  const remaining = Math.floor(raw);
   const days = Math.floor(remaining / 86400);
   const hours = Math.floor((remaining % 86400) / 3600);
   const minutes = Math.floor((remaining % 3600) / 60);
@@ -571,7 +580,20 @@ function sortValue(position, col) {
   if (col === "title") return (position.title || position.slug || "").toLowerCase();
   if (col === "outcome") return (position.outcome || "").toLowerCase();
   if (col === "pot_win") return Number(position.size || 0) - Number(position.initial_value || 0);
+  if (col === "finalization_priority") return Number(position.finalization_priority ?? 99);
   return Number(position[col] || 0);
+}
+
+function finalizationStatus(position) {
+  const winner = position.resolution_winner || resolutionsBySlug[position.slug];
+  if (winner) {
+    const won = String(position.outcome || "").toLowerCase() === String(winner).toLowerCase();
+    return { label: won ? "Resolved win" : "Resolved loss", detail: "winner " + winner, cls: won ? "positive" : "negative" };
+  }
+  const eta = Number(position.eta_seconds || 0);
+  if (eta <= 0) return { label: "Awaiting resolution", detail: "ended; checking Gamma", cls: "negative" };
+  if (eta <= 24 * 3600) return { label: "Ending soon", detail: fmtEta(eta), cls: "" };
+  return { label: "Open", detail: "final in " + fmtEta(eta), cls: "" };
 }
 
 function sortPositions(positions) {
@@ -631,6 +653,14 @@ function renderPortfolio(msg) {
     "position sync " + fmtAgo(msg.last_position_sync_ts);
   document.getElementById("last-price-cycle").textContent =
     "price cycle " + fmtAgo(msg.last_price_cycle_ts);
+  const fin = msg.finalization || {};
+  const actionableFinalizations = Number(fin.ended_positions || 0) + Number(fin.ending_soon_24h || 0);
+  document.getElementById("finalization-count").textContent = String(actionableFinalizations);
+  document.getElementById("finalization-meta").textContent =
+    "ended " + Number(fin.ended_positions || 0) +
+    " | <24h " + Number(fin.ending_soon_24h || 0) +
+    " | resolved " + Number(fin.resolved_positions || 0) +
+    (fin.next_finalization_eta_seconds != null ? " | next " + fmtEta(fin.next_finalization_eta_seconds) : "");
   document.getElementById("positions-note").textContent =
     positions.length
       ? "sorted by " + (document.querySelector("th[data-sort='" + sortColumn + "']")?.textContent || sortColumn)
@@ -640,7 +670,7 @@ function renderPortfolio(msg) {
 
   positionsBody.innerHTML = "";
   if (positions.length === 0) {
-    positionsBody.innerHTML = '<tr><td colspan="9" class="empty">No open positions</td></tr>';
+    positionsBody.innerHTML = '<tr><td colspan="10" class="empty">No open positions</td></tr>';
     return;
   }
 
@@ -697,12 +727,19 @@ function renderPortfolio(msg) {
     potWinCell.lastChild.textContent = fmtPct(potWinPct);
     potWinCell.lastChild.className = potWinPct >= 0 ? "trade-meta positive" : "trade-meta negative";
 
+    const finalizationCell = document.createElement("td");
+    const finalization = finalizationStatus(position);
+    finalizationCell.innerHTML = '<div></div><div class="trade-meta"></div>';
+    finalizationCell.firstChild.textContent = finalization.label;
+    finalizationCell.firstChild.className = finalization.cls;
+    finalizationCell.lastChild.textContent = finalization.detail;
+
     const etaCell = document.createElement("td");
     etaCell.innerHTML = '<div class="mono"></div><div class="trade-meta"></div>';
     etaCell.firstChild.textContent = fmtEta(position.eta_seconds);
     etaCell.lastChild.textContent = position.end_date || "--";
 
-    tr.append(marketCell, sideCell, sizeCell, avgCell, curCell, valueCell, pnlCell, potWinCell, etaCell);
+    tr.append(marketCell, sideCell, sizeCell, avgCell, curCell, valueCell, pnlCell, potWinCell, finalizationCell, etaCell);
     positionsBody.appendChild(tr);
   }
 }

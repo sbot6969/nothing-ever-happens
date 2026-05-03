@@ -83,6 +83,7 @@ class PendingEntry:
     market: StandaloneMarket
     enqueued_at_ts: float
     next_attempt_monotonic: float
+    score: float = 0.0
     dispatch_failures: int = 0
     last_error: str = ""
 
@@ -91,6 +92,9 @@ class PendingEntry:
 class EntryPlan:
     no_ask: float
     target_notional: float
+    score: float
+    spread: float
+    best_ask_depth_usd: float
 
 
 @dataclass(frozen=True)
@@ -139,6 +143,21 @@ def _max_notional_within_price(book: OrderBookSnapshot, price_cap: float) -> flo
         if level.price <= price_cap + 1e-9:
             total += level.price * level.size
     return total
+
+
+def _best_ask_depth_usd(book: OrderBookSnapshot) -> float:
+    best = _best_ask(book)
+    if best <= 0:
+        return 0.0
+    return sum(level.price * level.size for level in book.asks if abs(level.price - best) <= 1e-9)
+
+
+def _bid_ask_spread(book: OrderBookSnapshot) -> float:
+    ask = _best_ask(book)
+    bid = _best_bid(book)
+    if ask <= 0 or bid <= 0:
+        return 1.0
+    return max(0.0, ask - bid)
 
 
 def _clamp_probability(price: float) -> float:
@@ -649,12 +668,15 @@ class NothingHappensRuntime:
                 self._schedule_backoff(market.slug, failed=False)
                 return
 
-            self._enqueue_pending_entry(market)
+            self._enqueue_pending_entry(market, entry_plan)
             logger.info(
-                "nothing_happens_entry_queued slug=%s ask=%.4f target=%.4f pending=%d",
+                "nothing_happens_entry_queued slug=%s ask=%.4f target=%.4f score=%.4f spread=%.4f depth=%.4f pending=%d",
                 market.slug,
                 entry_plan.no_ask,
                 entry_plan.target_notional,
+                entry_plan.score,
+                entry_plan.spread,
+                entry_plan.best_ask_depth_usd,
                 len(self._pending_entries_by_slug),
             )
             self._schedule_backoff(market.slug, failed=False)
@@ -809,6 +831,42 @@ class NothingHappensRuntime:
         no_ask = _best_ask(book)
         if no_ask <= 0 or no_ask > self.cfg.max_entry_price:
             return None
+        if market.volume + 1e-9 < self.cfg.min_market_volume:
+            logger.info(
+                "nothing_happens_volume_skip slug=%s volume=%.4f min=%.4f",
+                market.slug,
+                market.volume,
+                self.cfg.min_market_volume,
+            )
+            return None
+        if market.liquidity + 1e-9 < self.cfg.min_market_liquidity:
+            logger.info(
+                "nothing_happens_liquidity_skip slug=%s liquidity=%.4f min=%.4f",
+                market.slug,
+                market.liquidity,
+                self.cfg.min_market_liquidity,
+            )
+            return None
+
+        spread = _bid_ask_spread(book)
+        if self.cfg.max_bid_ask_spread > 0 and spread > self.cfg.max_bid_ask_spread + 1e-9:
+            logger.info(
+                "nothing_happens_spread_skip slug=%s spread=%.4f max=%.4f",
+                market.slug,
+                spread,
+                self.cfg.max_bid_ask_spread,
+            )
+            return None
+
+        best_ask_depth_usd = _best_ask_depth_usd(book)
+        if self.cfg.min_best_ask_depth_usd > 0 and best_ask_depth_usd + 1e-9 < self.cfg.min_best_ask_depth_usd:
+            logger.info(
+                "nothing_happens_best_ask_depth_skip slug=%s depth=%.4f min=%.4f",
+                market.slug,
+                best_ask_depth_usd,
+                self.cfg.min_best_ask_depth_usd,
+            )
+            return None
 
         submitted_buy_price = self._submitted_buy_price(no_ask)
         safe_notional = _max_notional_within_price(book, self.cfg.max_entry_price)
@@ -819,11 +877,19 @@ class NothingHappensRuntime:
         if cash_balance <= 0.0:
             cached_balance = await self._ensure_cash_balance(log_context="entry")
             cash_balance = max(0.0, float(self._available_cash_balance() if cached_balance is not None else 0.0))
+        score = self._entry_quality_score(
+            market=market,
+            no_ask=no_ask,
+            spread=spread,
+            safe_notional=safe_notional,
+            best_ask_depth_usd=best_ask_depth_usd,
+        )
         target_notional = self._target_notional(
             cash_balance=cash_balance,
             submitted_price=submitted_buy_price,
             market_min_order_size=market.min_order_size,
             book_min_order_size=book.min_order_size,
+            entry_score=score,
         )
         if target_notional > cash_balance + 1e-9:
             logger.info(
@@ -856,23 +922,44 @@ class NothingHappensRuntime:
                 )
                 return None
 
-        return EntryPlan(no_ask=no_ask, target_notional=target_notional)
+        return EntryPlan(
+            no_ask=no_ask,
+            target_notional=target_notional,
+            score=score,
+            spread=spread,
+            best_ask_depth_usd=best_ask_depth_usd,
+        )
 
-    def _enqueue_pending_entry(self, market: StandaloneMarket) -> None:
+    def _enqueue_pending_entry(self, market: StandaloneMarket, entry_plan: EntryPlan | None = None) -> None:
+        score = entry_plan.score if entry_plan is not None else 0.0
         if market.slug in self._pending_entries_by_slug:
+            pending = self._pending_entries_by_slug[market.slug]
+            pending.score = max(pending.score, score)
             return
+        try:
+            loop_now = asyncio.get_running_loop().time()
+        except RuntimeError:
+            loop_now = time.monotonic()
         self._pending_entries_by_slug[market.slug] = PendingEntry(
             market=market,
             enqueued_at_ts=time.time(),
-            next_attempt_monotonic=asyncio.get_running_loop().time(),
+            next_attempt_monotonic=loop_now,
+            score=score,
         )
 
     def _next_due_pending_entry(self) -> PendingEntry | None:
-        loop_now = asyncio.get_running_loop().time()
-        for pending in self._pending_entries_by_slug.values():
-            if loop_now >= pending.next_attempt_monotonic:
-                return pending
-        return None
+        try:
+            loop_now = asyncio.get_running_loop().time()
+        except RuntimeError:
+            loop_now = time.monotonic()
+        due = [
+            pending
+            for pending in self._pending_entries_by_slug.values()
+            if loop_now >= pending.next_attempt_monotonic
+        ]
+        if not due:
+            return None
+        return max(due, key=lambda pending: (pending.score, -pending.dispatch_failures, -pending.enqueued_at_ts))
 
     def _reschedule_pending_entry(
         self,
@@ -1371,16 +1458,46 @@ class NothingHappensRuntime:
         submitted_price: float,
         market_min_order_size: float,
         book_min_order_size: float,
+        entry_score: float = 0.0,
     ) -> float:
         base_notional = (
             self.cfg.fixed_trade_amount
             if self.cfg.fixed_trade_amount > 0
             else max(cash_balance * self.cfg.cash_pct_per_trade, self.cfg.min_trade_amount)
         )
+        if self.cfg.dynamic_position_sizing_enabled and self.cfg.edge_size_multiplier > 0:
+            base_notional *= 1.0 + max(0.0, entry_score) * self.cfg.edge_size_multiplier
+        if self.cfg.max_trade_amount > 0:
+            base_notional = min(base_notional, self.cfg.max_trade_amount)
         minimum_shares = max(0.0, market_min_order_size, book_min_order_size)
         if minimum_shares <= 0 or submitted_price <= 0:
             return base_notional
         return max(base_notional, minimum_shares * submitted_price)
+
+    def _entry_quality_score(
+        self,
+        *,
+        market: StandaloneMarket,
+        no_ask: float,
+        spread: float,
+        safe_notional: float,
+        best_ask_depth_usd: float,
+    ) -> float:
+        edge_to_cap = max(0.0, self.cfg.max_entry_price - no_ask) / max(self.cfg.max_entry_price, 0.01)
+        spread_penalty = min(1.0, spread / max(no_ask, 0.01))
+        depth_bonus = min(1.0, safe_notional / max(self.cfg.min_trade_amount, 1.0))
+        best_level_bonus = min(1.0, best_ask_depth_usd / max(self.cfg.min_trade_amount, 1.0))
+        liquidity_bonus = min(1.0, market.liquidity / 1_000.0)
+        volume_bonus = min(1.0, market.volume / 1_000.0)
+        return max(
+            0.0,
+            edge_to_cap * 0.45
+            + (1.0 - spread_penalty) * 0.20
+            + depth_bonus * 0.15
+            + best_level_bonus * 0.10
+            + liquidity_bonus * 0.05
+            + volume_bonus * 0.05,
+        )
 
     def _schedule_backoff(self, slug: str, *, failed: bool) -> None:
         state = self._price_backoff.get(slug)
