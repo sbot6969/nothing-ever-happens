@@ -25,6 +25,29 @@ TRADE_HISTORY_LIMIT = 1000
 BALANCE_HISTORY_LIMIT = 2880
 
 
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _runtime_status() -> dict:
+    bot_mode = os.getenv("BOT_MODE", "paper").strip().lower() or "paper"
+    live_trading_enabled = _env_bool("LIVE_TRADING_ENABLED", False)
+    dry_run = _env_bool("DRY_RUN", True)
+    live_send_enabled = bot_mode == "live" and live_trading_enabled and not dry_run
+    return {
+        "variant": os.getenv("BOT_VARIANT", "nothing_happens"),
+        "mode": "live" if live_send_enabled else "paper",
+        "bot_mode": bot_mode,
+        "live_send_enabled": live_send_enabled,
+        "live_trading_enabled": live_trading_enabled,
+        "dry_run": dry_run,
+        "label": "LIVE SEND ENABLED" if live_send_enabled else "PAPER / DRY-RUN",
+    }
+
+
 class DashboardServer:
     def __init__(
         self,
@@ -180,6 +203,7 @@ class DashboardServer:
         finalization_summary = self._make_finalization_summary(snapshot.positions)
         return {
             "type": "portfolio",
+            "runtime": _runtime_status(),
             "updated_at_us": snapshot.updated_at_us,
             "monitored_markets": snapshot.monitored_markets,
             "eligible_markets": snapshot.eligible_markets,

@@ -48,6 +48,26 @@ def test_dashboard_force_portfolio_snapshot_replays_latest_state():
     assert second["in_range_markets"] == 3
 
 
+def test_dashboard_portfolio_message_clearly_reports_paper_runtime(monkeypatch):
+    monkeypatch.setenv("BOT_MODE", "paper")
+    monkeypatch.setenv("LIVE_TRADING_ENABLED", "false")
+    monkeypatch.setenv("DRY_RUN", "true")
+    portfolio_state = _make_portfolio_state()
+    server = DashboardServer(port=0, portfolio_state=portfolio_state)
+
+    message = server._make_portfolio_message(force=True)
+
+    assert message["runtime"] == {
+        "variant": "nothing_happens",
+        "mode": "paper",
+        "bot_mode": "paper",
+        "live_send_enabled": False,
+        "live_trading_enabled": False,
+        "dry_run": True,
+        "label": "PAPER / DRY-RUN",
+    }
+
+
 
 
 def test_dashboard_portfolio_message_includes_finalization_info():
@@ -109,6 +129,7 @@ async def test_dashboard_http_serves_html():
             assert "Open Positions" in text
             assert "In Range" in text
             assert "Finalization" in text
+            assert "PAPER / DRY-RUN" in text
 
     await runner.cleanup()
 

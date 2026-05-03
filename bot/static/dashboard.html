@@ -419,6 +419,11 @@ th[data-sort].sort-desc::after {
 
   <div class="summary-grid">
     <div class="summary-card">
+      <div class="label">Mode</div>
+      <div class="value" id="runtime-mode">--</div>
+      <div class="meta" id="runtime-meta">paper/dry-run safety</div>
+    </div>
+    <div class="summary-card">
       <div class="label">Monitored</div>
       <div class="value" id="monitored">--</div>
       <div class="meta">filtered standalone markets</div>
@@ -637,6 +642,14 @@ function renderPortfolio(msg) {
   const cashBalance = Number(msg.cash_balance || 0);
   const positionsValue = positions.reduce((sum, position) => sum + Number(position.current_value || 0), 0);
   const portfolioValue = (msg.cash_balance == null ? null : cashBalance + positionsValue);
+  const runtime = msg.runtime || {};
+  const modeEl = document.getElementById("runtime-mode");
+  modeEl.textContent = runtime.label || (runtime.live_send_enabled ? "LIVE SEND ENABLED" : "PAPER / DRY-RUN");
+  modeEl.className = "value " + (runtime.live_send_enabled ? "negative" : "positive");
+  document.getElementById("runtime-meta").textContent =
+    "BOT_MODE " + (runtime.bot_mode || "paper") +
+    " | DRY_RUN " + (runtime.dry_run === false ? "false" : "true") +
+    " | live gate " + (runtime.live_send_enabled ? "on" : "off");
 
   document.getElementById("monitored").textContent = String(msg.monitored_markets ?? "--");
   document.getElementById("eligible").textContent = String(msg.eligible_markets ?? "--");
