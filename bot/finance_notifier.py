@@ -1,8 +1,10 @@
-"""Best-effort Telegram finance notifications via OpenClaw messaging.
+"""Best-effort Telegram finance notifications.
 
-The trading hot path must never depend on Telegram delivery.  This module is
+The trading hot path must never depend on Telegram delivery. This module is
 therefore intentionally asynchronous-at-the-edge: callers enqueue compact events
-and a daemon worker shells out to `openclaw message send` when configured.
+and a daemon worker sends them either through a dedicated Telegram bot token
+(`FINANCE_TG_BOT_TOKEN` + `FINANCE_TG_CHAT_ID`) or, as a fallback, through
+OpenClaw messaging.
 """
 
 from __future__ import annotations
@@ -14,6 +16,8 @@ import queue
 import subprocess
 import threading
 import time
+import urllib.parse
+import urllib.request
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -46,6 +50,18 @@ def _enabled() -> bool:
 
 def _target() -> str:
     return os.getenv("FINANCE_TG_TARGET", "@sbot_finances_bot").strip()
+
+
+def _bot_token() -> str:
+    return os.getenv("FINANCE_TG_BOT_TOKEN", os.getenv("TG_BOT_TOKEN", "")).strip()
+
+
+def _chat_id() -> str:
+    return os.getenv("FINANCE_TG_CHAT_ID", os.getenv("TG_CHAT_ID", "")).strip()
+
+
+def _has_destination() -> bool:
+    return bool((_bot_token() and _chat_id()) or _target())
 
 
 def _channel() -> str:
@@ -126,6 +142,20 @@ def _format_message(record: dict[str, Any]) -> str:
 
 
 def _send_message(text: str) -> None:
+    token = _bot_token()
+    chat_id = _chat_id()
+    if token and chat_id:
+        data = urllib.parse.urlencode({"chat_id": chat_id, "text": text}).encode("utf-8")
+        req = urllib.request.Request(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            data=data,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:  # noqa: S310 - configured Telegram Bot API endpoint
+            resp.read()
+        return
+
     target = _target()
     if not target:
         return
@@ -162,7 +192,7 @@ def _ensure_worker() -> None:
 
 def notify_event(record: dict[str, Any]) -> None:
     """Queue a finance notification if enabled/configured and action is wanted."""
-    if not _enabled() or not _target():
+    if not _enabled() or not _has_destination():
         return
     action = str(record.get("action") or record.get("event") or "")
     if action not in _actions():
