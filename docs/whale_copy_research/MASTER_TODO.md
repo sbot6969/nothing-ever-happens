@@ -174,17 +174,17 @@ Safety gate: **no live capital transfer, wallet funding, position closing, or li
 
 ## 9. Dashboard / reporting
 
-- [ ] Main dashboard keeps finalization block.
-- [ ] Whale dashboard should show:
-  - [ ] live/paper status
-  - [ ] watched wallets/signals
-  - [ ] copied wallet and wallet history count
-  - [ ] risk/confidence score
-  - [ ] simulated order size and expected slippage
-  - [ ] PnL/backtest summary
-  - [ ] notification health
-  - [ ] last API error and rate-limit status
-- [ ] Add backtest reports as static HTML/Markdown artifacts.
+- [x] Main dashboard keeps finalization block.
+- [x] Whale dashboard should show:
+  - [x] live/paper status
+  - [x] watched wallets/signals
+  - [x] copied wallet and wallet history count
+  - [x] risk/confidence score
+  - [x] simulated order size and expected slippage
+  - [x] PnL/backtest summary
+  - [x] notification health
+  - [x] last API error and rate-limit status
+- [x] Add backtest reports as static HTML/Markdown artifacts.
 
 ## 10. Telegram finance notifier
 

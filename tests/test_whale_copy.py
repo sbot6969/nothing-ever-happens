@@ -32,19 +32,25 @@ def test_confidence_bounds(monkeypatch):
 
 def test_snapshot_reports_paper_defaults(monkeypatch):
     monkeypatch.delenv("WHALE_COPY_LIVE_ENABLED", raising=False)
+    monkeypatch.delenv("WHALE_EXPECTED_SLIPPAGE_BPS", raising=False)
     state = whale_copy.WhaleCopyState()
 
     snap = asyncio.run(state.snapshot())
     assert snap["live_enabled"] is False
     assert snap["runtime"]["label"] == "PAPER / DRY-RUN"
     assert snap["notification_health"]["status"] == "ok"
+    assert snap["api_health"]["status"] == "ok"
+    assert snap["api_health"]["rate_limit_status"] == "not_reported"
     assert snap["signal_quality"]["avg_confidence"] == 0.0
+    assert snap["risk_summary"]["latest_planned_copy_notional"] == 0.0
+    assert snap["expected_slippage_bps"] == 0.0
     assert snap["backtest_metrics"]["iterations_completed"] == 0
     assert snap["signals"] == []
 
 
 def test_snapshot_masks_wallets_and_reports_quality(monkeypatch):
     monkeypatch.delenv("WHALE_COPY_LIVE_ENABLED", raising=False)
+    monkeypatch.setenv("WHALE_EXPECTED_SLIPPAGE_BPS", "12.5")
     state = whale_copy.WhaleCopyState()
     signal = whale_copy.WhaleSignal(
         ts=1,
@@ -64,6 +70,8 @@ def test_snapshot_masks_wallets_and_reports_quality(monkeypatch):
         confidence=0.8,
         action="paper",
         reason="first_visible_trade_large_buy",
+        planned_copy_notional=25.0,
+        expected_slippage_bps=12.5,
     )
 
     asyncio.run(state.add_signal(signal))
@@ -72,9 +80,24 @@ def test_snapshot_masks_wallets_and_reports_quality(monkeypatch):
     assert snap["paper_trade_count"] == 1
     assert snap["signal_quality"]["avg_confidence"] == 0.8
     assert snap["signal_quality"]["high_confidence_count"] == 1
+    assert snap["risk_summary"]["latest_planned_copy_notional"] == 25.0
+    assert snap["risk_summary"]["expected_slippage_bps"] == 12.5
     assert snap["wallet_history"]["first_visible_signal_count"] == 1
     assert snap["signals"][0]["masked_wallet"] == "0x1234…cdef"
+    assert snap["signals"][0]["planned_copy_notional"] == 25.0
+    assert snap["signals"][0]["expected_slippage_bps"] == 12.5
     assert "wallet" not in snap["signals"][0]
+
+
+def test_snapshot_reports_rate_limited_api_health():
+    state = whale_copy.WhaleCopyState()
+
+    asyncio.run(state.set_error("429 Too Many Requests"))
+    snap = asyncio.run(state.snapshot())
+
+    assert snap["api_health"]["status"] == "rate_limited"
+    assert snap["api_health"]["rate_limit_status"] == "rate_limited"
+    assert snap["notification_health"]["status"] == "degraded"
 
 
 def test_backtest_metrics_from_env(monkeypatch):
@@ -94,6 +117,9 @@ def test_backtest_metrics_from_env(monkeypatch):
 def test_whale_dashboard_html_has_required_reporting_blocks():
     assert "Wallet History" in whale_copy.HTML
     assert "Signal Quality" in whale_copy.HTML
+    assert "Risk / Confidence" in whale_copy.HTML
     assert "Notification Health" in whale_copy.HTML
+    assert "Expected Slippage" in whale_copy.HTML
+    assert "API / Rate Limit" in whale_copy.HTML
     assert "Backtest Best" in whale_copy.HTML
     assert "PAPER / DRY-RUN" in whale_copy.HTML

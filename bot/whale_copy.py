@@ -51,6 +51,8 @@ class WhaleSignal:
     confidence: float
     action: str
     reason: str
+    planned_copy_notional: float = 0.0
+    expected_slippage_bps: float = 0.0
 
 
 class WhaleCopyState:
@@ -104,11 +106,14 @@ class WhaleCopyState:
                     "history_cache_size": len(self.wallet_history_cache),
                 },
                 "signal_quality": _signal_quality(recent_signals),
+                "risk_summary": _risk_summary(recent_signals),
+                "api_health": _api_health(self.last_error, self.poll_count, self.last_poll_ts),
                 "backtest_metrics": backtest_metrics(),
                 "live_enabled": live_enabled(),
                 "min_notional_usd": min_notional_usd(),
                 "copy_fraction": copy_fraction(),
                 "max_copy_notional_usd": max_copy_notional_usd(),
+                "expected_slippage_bps": expected_slippage_bps(),
                 "signals": signal_rows[::-1],
             }
 
@@ -142,6 +147,10 @@ def copy_fraction() -> float:
 
 def max_copy_notional_usd() -> float:
     return float(os.getenv("WHALE_MAX_COPY_NOTIONAL_USD", "25"))
+
+
+def expected_slippage_bps() -> float:
+    return float(os.getenv("WHALE_EXPECTED_SLIPPAGE_BPS", "0"))
 
 
 def poll_interval_sec() -> float:
@@ -200,6 +209,35 @@ def _signal_quality(signals: list[WhaleSignal]) -> dict[str, Any]:
     }
 
 
+def _api_health(last_error: str, poll_count: int, last_poll_ts: float) -> dict[str, Any]:
+    error = str(last_error or "")
+    error_lower = error.lower()
+    if "429" in error_lower or "rate" in error_lower:
+        status = "rate_limited"
+    elif error:
+        status = "degraded"
+    else:
+        status = "ok"
+    return {
+        "status": status,
+        "rate_limit_status": "rate_limited" if status == "rate_limited" else "not_reported",
+        "poll_count": poll_count,
+        "last_poll_ts": last_poll_ts,
+        "detail": error or "Data API polling normally; no rate-limit header reported",
+    }
+
+
+def _risk_summary(signals: list[WhaleSignal]) -> dict[str, Any]:
+    latest = signals[-1] if signals else None
+    return {
+        "copy_fraction": copy_fraction(),
+        "max_copy_notional_usd": max_copy_notional_usd(),
+        "expected_slippage_bps": expected_slippage_bps(),
+        "latest_planned_copy_notional": round(float(latest.planned_copy_notional), 4) if latest else 0.0,
+        "latest_confidence": round(float(latest.confidence), 3) if latest else 0.0,
+    }
+
+
 def _trade_key(trade: dict[str, Any]) -> str:
     return str(trade.get("transactionHash") or trade.get("name") or json.dumps(trade, sort_keys=True)[:240])
 
@@ -255,6 +293,8 @@ async def _handle_signal(trade: dict[str, Any], history_count: int, state: Whale
         confidence=_confidence(trade, history_count),
         action="live" if is_live else "paper",
         reason="first_visible_trade_large_buy" if history_count <= 1 else "large_trade",
+        planned_copy_notional=round(copy_notional, 4),
+        expected_slippage_bps=expected_slippage_bps(),
     )
     await state.add_signal(signal)
     action = "whale_copy_live_trade" if is_live else "whale_copy_paper_trade"
@@ -328,9 +368,59 @@ async def poll_whales(state: WhaleCopyState, shutdown: asyncio.Event) -> None:
             await asyncio.sleep(poll_interval_sec())
 
 
-HTML = r'''<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Whale Copy Dashboard</title>
-<style>body{margin:0;background:#0d1117;color:#e6edf3;font-family:system-ui,-apple-system,sans-serif}.shell{max-width:1440px;margin:auto;padding:24px}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.card,.panel{background:#161b22;border:1px solid #30363d;border-radius:16px;padding:14px}.label{color:#8b949e;text-transform:uppercase;font-size:12px;letter-spacing:.08em}.value{font-size:24px;font-weight:800;margin-top:6px}.meta{color:#8b949e;font-size:13px;margin-top:6px}.panel{margin-top:16px}table{width:100%;border-collapse:collapse}th,td{border-bottom:1px solid #30363d;padding:10px;text-align:left;vertical-align:top;font-size:14px}th{color:#8b949e;text-transform:uppercase;font-size:12px}.mono{font-family:ui-monospace,monospace}.good{color:#3fb950}.bad{color:#f85149}.warn{color:#d29922}a{color:#58a6ff}.pill{display:inline-block;border:1px solid #30363d;border-radius:999px;padding:3px 8px;background:#21262d}.title{display:flex;justify-content:space-between;gap:12px;align-items:center}.subgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:16px}@media(max-width:900px){.grid,.subgrid{grid-template-columns:1fr}}</style></head><body><div class="shell"><div class="title"><h1>🐋 Whale Copy Bot</h1><div id="socket" class="pill bad">socket disconnected</div></div><div class="grid"><div class="card"><div class="label">Mode</div><div id="mode" class="value">--</div><div id="mode-meta" class="meta">live gate off by default</div></div><div class="card"><div class="label">Signals</div><div id="signals" class="value">--</div><div class="meta">first-time large BUYs</div></div><div class="card"><div class="label">Paper</div><div id="paper" class="value">--</div><div class="meta">simulated copies</div></div><div class="card"><div class="label">Live</div><div id="live" class="value">--</div><div class="meta">real copies</div></div><div class="card"><div class="label">Wallet History</div><div id="wallets" class="value">--</div><div id="wallet-meta" class="meta">history checked</div></div><div class="card"><div class="label">Signal Quality</div><div id="quality" class="value">--</div><div id="quality-meta" class="meta">avg / high confidence</div></div><div class="card"><div class="label">Notification Health</div><div id="notify" class="value">--</div><div id="notify-meta" class="meta">ledger/notifier best-effort</div></div><div class="card"><div class="label">Copy Rule</div><div id="copy" class="value">--</div><div id="copy-meta" class="meta">fraction / cap</div></div></div><div class="subgrid"><div class="card"><div class="label">Min Whale</div><div id="min" class="value">--</div><div class="meta">notional threshold</div></div><div class="card"><div class="label">Backtest Best</div><div id="backtest" class="value">--</div><div id="backtest-meta" class="meta">waiting for reports</div></div><div class="card"><div class="label">Last Error</div><div id="err" class="value bad">none</div><div id="poll" class="meta">poll --</div></div></div><div class="panel"><h2>Recent Whale Signals</h2><table><thead><tr><th>Market</th><th>Whale</th><th>Trade</th><th>Copy</th><th>Confidence</th><th>Reason</th><th>Tx</th></tr></thead><tbody id="rows"><tr><td colspan="7" class="meta">waiting for signals</td></tr></tbody></table></div></div><script>
-const $=id=>document.getElementById(id);function usd(x){return '$'+Number(x||0).toFixed(2)}function pct(x){return x==null?'--':Number(x).toFixed(2)+'%'}function ago(ts){if(!ts)return'--';let d=Math.max(0,Date.now()/1000-ts);if(d<60)return Math.floor(d)+'s ago';if(d<3600)return Math.floor(d/60)+'m ago';return Math.floor(d/3600)+'h ago'}function esc(v){return String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}function render(s){let rt=s.runtime||{};$('mode').textContent=rt.label||(s.live_enabled?'LIVE COPY ENABLED':'PAPER / DRY-RUN');$('mode').className='value '+(s.live_enabled?'bad':'warn');$('mode-meta').textContent=s.live_enabled?'live copy gate is ON':'no live funds/orders from this dashboard';$('signals').textContent=s.signal_count;$('paper').textContent=s.paper_trade_count;$('live').textContent=s.live_trade_count;let wh=s.wallet_history||{};$('wallets').textContent=wh.unique_wallets_checked??s.unique_wallets_checked;$('wallet-meta').textContent='first-visible signals '+(wh.first_visible_signal_count??0)+' | cache '+(wh.history_cache_size??0);let q=s.signal_quality||{};$('quality').textContent=Number(q.avg_confidence||0).toFixed(3);$('quality-meta').textContent='latest '+Number(q.latest_confidence||0).toFixed(3)+' | high '+(q.high_confidence_count||0);let nh=s.notification_health||{};$('notify').textContent=nh.status||'ok';$('notify').className='value '+((nh.status==='ok')?'good':'warn');$('notify-meta').textContent=nh.detail||'ledger/notifier best-effort';$('min').textContent=usd(s.min_notional_usd);$('copy').textContent=Math.round(s.copy_fraction*100)+'% / '+usd(s.max_copy_notional_usd);$('copy-meta').textContent='paper unless WHALE_COPY_LIVE_ENABLED=true';let bt=s.backtest_metrics||{};$('backtest').textContent=bt.best_roi_pct==null?'--':pct(bt.best_roi_pct);$('backtest-meta').textContent='iter '+(bt.iterations_completed||0)+' | PnL '+(bt.best_pnl_usd==null?'--':usd(bt.best_pnl_usd))+(bt.best_strategy?' | '+bt.best_strategy:'');$('err').textContent=s.last_error||'none';$('poll').textContent='poll '+ago(s.last_poll_ts);let rows=$('rows');rows.innerHTML='';if(!s.signals.length){rows.innerHTML='<tr><td colspan="7" class="meta">no signals yet</td></tr>';return}for(const sig of s.signals){let tr=document.createElement('tr');let url='https://polymarket.com/event/'+encodeURIComponent(sig.slug||'');let tx=sig.tx?'<a target="_blank" rel="noreferrer" href="https://polygonscan.com/tx/'+encodeURIComponent(sig.tx)+'">tx</a>':'--';tr.innerHTML='<td><a target="_blank" rel="noreferrer" href="'+url+'">'+esc(sig.title||sig.slug)+'</a><div class="meta mono">'+esc(sig.slug)+'</div></td><td><div class="mono">'+esc(sig.masked_wallet||'--')+'</div><div class="meta">'+esc(sig.pseudonym||'')+' | history '+esc(sig.history_count)+'</div></td><td>'+esc(sig.side)+' '+esc(sig.outcome)+'<div class="meta">'+usd(sig.notional)+' @ '+Number(sig.price).toFixed(4)+'</div></td><td><span class="pill">'+esc(sig.action)+'</span></td><td>'+esc(sig.confidence)+'</td><td>'+esc(sig.reason)+'</td><td>'+tx+'<div class="meta">'+ago(sig.detected_at)+'</div></td>';rows.appendChild(tr)}}function connect(){let ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws');ws.onopen=()=>{$('socket').textContent='socket connected';$('socket').className='pill good'};ws.onclose=()=>{$('socket').textContent='socket disconnected';$('socket').className='pill bad';setTimeout(connect,2000)};ws.onmessage=e=>render(JSON.parse(e.data))}connect();</script></body></html>'''
+HTML = r'''<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Whale Copy Dashboard</title>
+<style>
+body{margin:0;background:#0d1117;color:#e6edf3;font-family:system-ui,-apple-system,sans-serif}
+.shell{max-width:1440px;margin:auto;padding:24px}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.card,.panel{background:#161b22;border:1px solid #30363d;border-radius:16px;padding:14px}.label{color:#8b949e;text-transform:uppercase;font-size:12px;letter-spacing:.08em}.value{font-size:24px;font-weight:800;margin-top:6px}.meta{color:#8b949e;font-size:13px;margin-top:6px}.panel{margin-top:16px}
+table{width:100%;border-collapse:collapse}th,td{border-bottom:1px solid #30363d;padding:10px;text-align:left;vertical-align:top;font-size:14px}th{color:#8b949e;text-transform:uppercase;font-size:12px}.mono{font-family:ui-monospace,monospace}.good{color:#3fb950}.bad{color:#f85149}.warn{color:#d29922}a{color:#58a6ff}.pill{display:inline-block;border:1px solid #30363d;border-radius:999px;padding:3px 8px;background:#21262d}.title{display:flex;justify-content:space-between;gap:12px;align-items:center}.subgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:16px}@media(max-width:900px){.grid,.subgrid{grid-template-columns:1fr}}
+</style>
+</head>
+<body><div class="shell"><div class="title"><h1>🐋 Whale Copy Bot</h1><div id="socket" class="pill bad">socket disconnected</div></div>
+<div class="grid">
+<div class="card"><div class="label">Mode</div><div id="mode" class="value">--</div><div id="mode-meta" class="meta">live gate off by default</div></div>
+<div class="card"><div class="label">Watched Signals</div><div id="signals" class="value">--</div><div class="meta">first-time large BUYs</div></div>
+<div class="card"><div class="label">Paper</div><div id="paper" class="value">--</div><div class="meta">simulated copies</div></div>
+<div class="card"><div class="label">Live</div><div id="live" class="value">--</div><div class="meta">real copies</div></div>
+<div class="card"><div class="label">Wallet History</div><div id="wallets" class="value">--</div><div id="wallet-meta" class="meta">history checked</div></div>
+<div class="card"><div class="label">Signal Quality</div><div id="quality" class="value">--</div><div id="quality-meta" class="meta">avg / high confidence</div></div>
+<div class="card"><div class="label">Risk / Confidence</div><div id="risk" class="value">--</div><div id="risk-meta" class="meta">copy size + confidence</div></div>
+<div class="card"><div class="label">Notification Health</div><div id="notify" class="value">--</div><div id="notify-meta" class="meta">ledger/notifier best-effort</div></div>
+</div>
+<div class="subgrid">
+<div class="card"><div class="label">Copy Rule</div><div id="copy" class="value">--</div><div id="copy-meta" class="meta">fraction / cap</div></div>
+<div class="card"><div class="label">Expected Slippage</div><div id="slippage" class="value">--</div><div class="meta">configured reporting assumption</div></div>
+<div class="card"><div class="label">Backtest Best</div><div id="backtest" class="value">--</div><div id="backtest-meta" class="meta">waiting for reports</div></div>
+<div class="card"><div class="label">API / Rate Limit</div><div id="api" class="value">--</div><div id="api-meta" class="meta">poll --</div></div>
+</div>
+<div class="panel"><h2>Recent Whale Signals</h2><table><thead><tr><th>Market</th><th>Whale</th><th>Trade</th><th>Planned Copy</th><th>Confidence</th><th>Reason</th><th>Tx</th></tr></thead><tbody id="rows"><tr><td colspan="7" class="meta">waiting for signals</td></tr></tbody></table></div></div>
+<script>
+const $=id=>document.getElementById(id);
+function usd(x){return '$'+Number(x||0).toFixed(2)}
+function pct(x){return x==null?'--':Number(x).toFixed(2)+'%'}
+function bps(x){return Number(x||0).toFixed(1)+' bps'}
+function ago(ts){if(!ts)return'--';let d=Math.max(0,Date.now()/1000-ts);if(d<60)return Math.floor(d)+'s ago';if(d<3600)return Math.floor(d/60)+'m ago';return Math.floor(d/3600)+'h ago'}
+function esc(v){return String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function render(s){
+  let rt=s.runtime||{};$('mode').textContent=rt.label||(s.live_enabled?'LIVE COPY ENABLED':'PAPER / DRY-RUN');$('mode').className='value '+(s.live_enabled?'bad':'warn');$('mode-meta').textContent=s.live_enabled?'live copy gate is ON':'no live funds/orders from this dashboard';
+  $('signals').textContent=s.signal_count;$('paper').textContent=s.paper_trade_count;$('live').textContent=s.live_trade_count;
+  let wh=s.wallet_history||{};$('wallets').textContent=wh.unique_wallets_checked??s.unique_wallets_checked;$('wallet-meta').textContent='first-visible signals '+(wh.first_visible_signal_count??0)+' | cache '+(wh.history_cache_size??0);
+  let q=s.signal_quality||{};$('quality').textContent=Number(q.avg_confidence||0).toFixed(3);$('quality-meta').textContent='latest '+Number(q.latest_confidence||0).toFixed(3)+' | high '+(q.high_confidence_count||0);
+  let risk=s.risk_summary||{};$('risk').textContent=usd(risk.latest_planned_copy_notional||0);$('risk-meta').textContent='confidence '+Number(risk.latest_confidence||0).toFixed(3)+' | cap '+usd(risk.max_copy_notional_usd||s.max_copy_notional_usd);
+  let nh=s.notification_health||{};$('notify').textContent=nh.status||'ok';$('notify').className='value '+((nh.status==='ok')?'good':'warn');$('notify-meta').textContent=nh.detail||'ledger/notifier best-effort';
+  $('copy').textContent=Math.round(s.copy_fraction*100)+'% / '+usd(s.max_copy_notional_usd);$('copy-meta').textContent='min whale '+usd(s.min_notional_usd)+' | paper unless live gate true';$('slippage').textContent=bps(s.expected_slippage_bps);
+  let bt=s.backtest_metrics||{};$('backtest').textContent=bt.best_roi_pct==null?'--':pct(bt.best_roi_pct);$('backtest-meta').textContent='iter '+(bt.iterations_completed||0)+' | PnL '+(bt.best_pnl_usd==null?'--':usd(bt.best_pnl_usd))+(bt.best_strategy?' | '+bt.best_strategy:'');
+  let api=s.api_health||{};$('api').textContent=api.status||'ok';$('api').className='value '+((api.status==='ok')?'good':(api.status==='rate_limited'?'bad':'warn'));$('api-meta').textContent='rate '+(api.rate_limit_status||'not_reported')+' | poll '+ago(s.last_poll_ts);
+  let rows=$('rows');rows.innerHTML='';if(!s.signals.length){rows.innerHTML='<tr><td colspan="7" class="meta">no signals yet</td></tr>';return}
+  for(const sig of s.signals){let tr=document.createElement('tr');let url='https://polymarket.com/event/'+encodeURIComponent(sig.slug||'');let tx=sig.tx?'<a target="_blank" rel="noreferrer" href="https://polygonscan.com/tx/'+encodeURIComponent(sig.tx)+'">tx</a>':'--';tr.innerHTML='<td><a target="_blank" rel="noreferrer" href="'+url+'">'+esc(sig.title||sig.slug)+'</a><div class="meta mono">'+esc(sig.slug)+'</div></td><td><div class="mono">'+esc(sig.masked_wallet||'--')+'</div><div class="meta">'+esc(sig.pseudonym||'')+' | history '+esc(sig.history_count)+'</div></td><td>'+esc(sig.side)+' '+esc(sig.outcome)+'<div class="meta">'+usd(sig.notional)+' @ '+Number(sig.price).toFixed(4)+'</div></td><td><span class="pill">'+esc(sig.action)+'</span><div class="meta">'+usd(sig.planned_copy_notional)+' | slip '+bps(sig.expected_slippage_bps)+'</div></td><td>'+esc(sig.confidence)+'</td><td>'+esc(sig.reason)+'</td><td>'+tx+'<div class="meta">'+ago(sig.detected_at)+'</div></td>';rows.appendChild(tr)}
+}
+function connect(){let ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws');ws.onopen=()=>{$('socket').textContent='socket connected';$('socket').className='pill good'};ws.onclose=()=>{$('socket').textContent='socket disconnected';$('socket').className='pill bad';setTimeout(connect,2000)};ws.onmessage=e=>render(JSON.parse(e.data))}connect();
+</script></body></html>'''
 
 async def run_dashboard(state: WhaleCopyState, shutdown: asyncio.Event) -> None:
     clients: set[web.WebSocketResponse] = set()
