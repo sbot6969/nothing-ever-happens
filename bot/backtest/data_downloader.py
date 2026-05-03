@@ -15,6 +15,7 @@ from pathlib import Path
 import time
 from typing import Any
 from urllib.parse import urlencode
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 USER_AGENT = "Mozilla/5.0 (compatible; neh-whale-copy-backtest/1.0)"
@@ -33,10 +34,28 @@ class DownloadManifest:
     notes: list[str]
 
 
-def _fetch_json(url: str, *, timeout: float = 30.0) -> Any:
+def _fetch_json(url: str, *, timeout: float = 30.0, attempts: int = 3, backoff_sec: float = 1.0) -> Any:
     req = Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
-    with urlopen(req, timeout=timeout) as resp:  # nosec B310 - fixed public HTTPS endpoints
-        return json.load(resp)
+    last_error: Exception | None = None
+    for attempt in range(max(1, attempts)):
+        try:
+            with urlopen(req, timeout=timeout) as resp:  # nosec B310 - fixed public HTTPS endpoints
+                return json.load(resp)
+        except HTTPError as exc:
+            last_error = exc
+            retry_after = exc.headers.get("Retry-After") if exc.headers else None
+            if exc.code not in {429, 500, 502, 503, 504} or attempt == attempts - 1:
+                raise
+            delay = float(retry_after) if retry_after and retry_after.isdigit() else backoff_sec * (2**attempt)
+            time.sleep(min(delay, 30.0))
+        except (TimeoutError, URLError) as exc:
+            last_error = exc
+            if attempt == attempts - 1:
+                raise
+            time.sleep(min(backoff_sec * (2**attempt), 30.0))
+    if last_error:
+        raise last_error
+    raise RuntimeError("fetch failed without an exception")
 
 
 def _loads_json_list(value: Any) -> list[Any]:
@@ -168,10 +187,20 @@ def build_arg_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _bounded_int(value: int, *, name: str, min_value: int, max_value: int) -> int:
+    if not min_value <= value <= max_value:
+        raise ValueError(f"{name} must be between {min_value} and {max_value}")
+    return value
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_arg_parser().parse_args(argv)
-    snapshot = build_snapshot(market_limit=args.market_limit, trades_per_market=args.trades_per_market, sleep_sec=args.sleep_sec)
-    manifest = write_snapshot(snapshot, args.out_dir, market_limit=args.market_limit, trades_per_market=args.trades_per_market)
+    market_limit = _bounded_int(args.market_limit, name="market_limit", min_value=1, max_value=500)
+    trades_per_market = _bounded_int(args.trades_per_market, name="trades_per_market", min_value=1, max_value=1000)
+    if not 0 <= args.sleep_sec <= 10:
+        raise ValueError("sleep_sec must be between 0 and 10")
+    snapshot = build_snapshot(market_limit=market_limit, trades_per_market=trades_per_market, sleep_sec=args.sleep_sec)
+    manifest = write_snapshot(snapshot, args.out_dir, market_limit=market_limit, trades_per_market=trades_per_market)
     print(json.dumps(asdict(manifest), indent=2, sort_keys=True))
     return 0
 

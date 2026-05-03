@@ -69,3 +69,14 @@ def test_write_snapshot_manifest(tmp_path: Path) -> None:
 
     assert manifest.markets_saved == 1
     assert (tmp_path / "trades.json").exists()
+
+
+def test_downloader_cli_bounds_reject_unbounded_downloads(tmp_path: Path) -> None:
+    import pytest
+
+    with pytest.raises(ValueError, match="market_limit"):
+        data_downloader.main(["--out-dir", str(tmp_path), "--market-limit", "999999"])
+    with pytest.raises(ValueError, match="trades_per_market"):
+        data_downloader.main(["--out-dir", str(tmp_path), "--trades-per-market", "999999"])
+    with pytest.raises(ValueError, match="sleep_sec"):
+        data_downloader.main(["--out-dir", str(tmp_path), "--sleep-sec", "99"])
