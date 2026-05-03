@@ -1,0 +1,4 @@
+{
+  "asset-win": {"payout": 1},
+  "asset-lose": {"payout": 0}
+}

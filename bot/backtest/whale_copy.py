@@ -31,6 +31,33 @@ class WhaleBacktestConfig:
 
 
 @dataclass(frozen=True)
+class BacktestConfig:
+    """Compatibility config for the first whale-copy backtest tests.
+
+    New code should prefer ``WhaleBacktestConfig``; this keeps the original
+    lightweight API stable for existing tests and notebooks.
+    """
+
+    min_notional_usd: float = 250.0
+    copy_fraction: float = 0.10
+    max_copy_notional_usd: float = 25.0
+    max_history_count: int = 1
+    slippage_bps: float = 75.0
+
+
+@dataclass(frozen=True)
+class LegacyFill:
+    slug: str
+    wallet: str
+    outcome: str
+    entry_price: float
+    copy_notional: float
+    shares: float
+    payout: float
+    pnl: float
+
+
+@dataclass(frozen=True)
 class WhaleTrade:
     wallet: str
     side: str
@@ -97,6 +124,83 @@ class BacktestResult:
 
 class TradeValidationError(ValueError):
     """Raised when a cached Polymarket trade row is malformed."""
+
+
+def adjusted_entry_price(price: float, side: str, slippage_bps: float) -> float:
+    """Return conservative copied-entry price for legacy simulations."""
+    side = str(side).upper()
+    multiplier = 1.0 + (slippage_bps / 10_000.0) if side == "BUY" else 1.0 - (slippage_bps / 10_000.0)
+    return max(0.001, min(0.999, float(price) * multiplier))
+
+
+def select_signals(
+    trades: Iterable[dict[str, Any]],
+    wallet_history: dict[str, int],
+    cfg: BacktestConfig | None = None,
+) -> list[dict[str, Any]]:
+    """Select first-visible large BUY whale signals from cached trade rows."""
+    cfg = cfg or BacktestConfig()
+    signals: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for trade in sorted(trades, key=lambda row: int(row.get("timestamp") or 0)):
+        key = str(trade.get("transactionHash") or "") + ":" + str(trade.get("asset") or "") + ":" + str(trade.get("timestamp") or "")
+        if key in seen:
+            continue
+        seen.add(key)
+        if str(trade.get("side") or "").upper() != "BUY":
+            continue
+        wallet = str(trade.get("proxyWallet") or trade.get("user") or "").lower().strip()
+        history_count = int(wallet_history.get(wallet, trade.get("history_count", trade.get("historyCount", 99))))
+        if history_count > cfg.max_history_count:
+            continue
+        notional = float(trade.get("size") or 0.0) * float(trade.get("price") or 0.0)
+        if notional < cfg.min_notional_usd:
+            continue
+        signals.append(trade)
+    return signals
+
+
+def simulate(
+    trades: Iterable[dict[str, Any]],
+    resolved_outcomes_by_slug: dict[str, str],
+    wallet_history: dict[str, int],
+    cfg: BacktestConfig | None = None,
+) -> tuple[list[LegacyFill], dict[str, float]]:
+    """Small legacy simulator used by existing tests.
+
+    This is intentionally deterministic and offline. It applies slippage to the
+    copied BUY entry and resolves to 1/0 based on cached outcome labels.
+    """
+    cfg = cfg or BacktestConfig()
+    fills: list[LegacyFill] = []
+    total_notional = 0.0
+    total_pnl = 0.0
+    for trade in select_signals(trades, wallet_history, cfg):
+        price = float(trade.get("price") or 0.0)
+        entry = adjusted_entry_price(price, str(trade.get("side") or "BUY"), cfg.slippage_bps)
+        whale_notional = float(trade.get("size") or 0.0) * price
+        copy_notional = min(cfg.max_copy_notional_usd, whale_notional * cfg.copy_fraction)
+        shares = copy_notional / entry if entry > 0 else 0.0
+        slug = str(trade.get("slug") or trade.get("eventSlug") or "")
+        outcome = str(trade.get("outcome") or "")
+        payout = 1.0 if resolved_outcomes_by_slug.get(slug) == outcome else 0.0
+        pnl = shares * payout - copy_notional
+        fills.append(
+            LegacyFill(
+                slug=slug,
+                wallet=str(trade.get("proxyWallet") or trade.get("user") or ""),
+                outcome=outcome,
+                entry_price=entry,
+                copy_notional=copy_notional,
+                shares=shares,
+                payout=payout,
+                pnl=pnl,
+            )
+        )
+        total_notional += copy_notional
+        total_pnl += pnl
+    roi = (total_pnl / total_notional) if total_notional else 0.0
+    return fills, {"pnl": total_pnl, "notional": total_notional, "roi": roi}
 
 
 def _as_float(value: Any, field: str) -> float:
