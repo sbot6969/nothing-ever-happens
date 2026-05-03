@@ -45,7 +45,7 @@ def _enabled() -> bool:
 
 
 def _target() -> str:
-    return os.getenv("FINANCE_TG_TARGET", "707939820").strip()
+    return os.getenv("FINANCE_TG_TARGET", "@sbot_finances_bot").strip()
 
 
 def _channel() -> str:

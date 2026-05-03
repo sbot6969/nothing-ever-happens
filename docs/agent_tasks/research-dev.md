@@ -20,4 +20,4 @@ Research mathematically/strategically plausible improvements for Polymarket bots
 - No claims of profitability without data.
 
 ## Completion route
-Send completion/failure to Telegram target `707939820` using `openclaw message send --channel telegram --target '707939820' --message '...'`. Do not use heartbeat.
+Send completion/failure to Telegram target `@sbot_finances_bot` using `openclaw message send --channel telegram --target '@sbot_finances_bot' --message '...'`. Do not use heartbeat.

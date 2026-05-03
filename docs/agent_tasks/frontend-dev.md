@@ -19,4 +19,4 @@ Improve dashboards/reporting for main and whale-copy bots. Do not touch transact
 - No sensitive data rendered.
 
 ## Completion route
-Send completion/failure to Telegram target `707939820` using `openclaw message send --channel telegram --target '707939820' --message '...'`. Do not use heartbeat.
+Send completion/failure to Telegram target `@sbot_finances_bot` using `openclaw message send --channel telegram --target '@sbot_finances_bot' --message '...'`. Do not use heartbeat.

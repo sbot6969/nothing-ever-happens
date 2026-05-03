@@ -21,4 +21,4 @@ Implement and validate backend/test/backtest parts for the whale-copy Polymarket
 - Completion report includes files changed and remaining blockers.
 
 ## Completion route
-Send completion/failure to Telegram target `707939820` using `openclaw message send --channel telegram --target '707939820' --message '...'`. Do not use heartbeat.
+Send completion/failure to Telegram target `@sbot_finances_bot` using `openclaw message send --channel telegram --target '@sbot_finances_bot' --message '...'`. Do not use heartbeat.
