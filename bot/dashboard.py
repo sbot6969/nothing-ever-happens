@@ -101,6 +101,10 @@ def _platform_bot_card(
     mode = _bot_mode(prefix)
     safe_error = str(last_error or "")[:180]
     resolved_health = health or ("degraded" if safe_error else ("idle" if status == "planned" else "ok"))
+    configured_live_signal_count = int(live_signal_count or 0)
+    safe_metrics = dict(metrics or {})
+    if configured_live_signal_count and not mode["live_send_enabled"]:
+        safe_metrics.setdefault("configured_live_signal_count", configured_live_signal_count)
     return {
         "id": bot_id,
         "name": name,
@@ -113,12 +117,23 @@ def _platform_bot_card(
         "dry_run": mode["dry_run"],
         "health": resolved_health,
         "paper_signal_count": int(paper_signal_count or 0),
-        "live_signal_count": int(live_signal_count or 0),
+        "live_signal_count": configured_live_signal_count if mode["live_send_enabled"] else 0,
         "pnl_usd": round(pnl_usd, 4) if pnl_usd is not None else None,
         "roi_pct": round(roi_pct, 4) if roi_pct is not None else None,
         "backtest_label": backtest_label,
         "last_error": safe_error,
-        "metrics": metrics or {},
+        "metrics": safe_metrics,
+    }
+
+
+def _platform_agent_card(*, agent_id: str, name: str, role: str, status_env: str, default_status: str, output_doc: str) -> dict:
+    status = os.getenv(status_env, default_status).strip() or default_status
+    return {
+        "id": agent_id,
+        "name": name,
+        "role": role,
+        "status": status[:80],
+        "output_doc": output_doc,
     }
 
 
@@ -415,13 +430,65 @@ class DashboardServer:
                 },
             ),
         ]
+        agents = [
+            _platform_agent_card(
+                agent_id="research_agent",
+                name="Deep Research Agent",
+                role="source research + Markdown reports",
+                status_env="RESEARCH_AGENT_STATUS",
+                default_status="running",
+                output_doc="docs/polymarket_multi_bot/RESEARCH_APPENDIX.md",
+            ),
+            _platform_agent_card(
+                agent_id="quant_math_agent",
+                name="Quant / Math Agent",
+                role="modeling + backtest interpretation",
+                status_env="QUANT_MATH_AGENT_STATUS",
+                default_status="running",
+                output_doc="docs/polymarket_multi_bot/QUANT_REVIEW.md",
+            ),
+            _platform_agent_card(
+                agent_id="backend_dev",
+                name="Backend Dev",
+                role="strategy code + backtests",
+                status_env="BACKEND_AGENT_STATUS",
+                default_status="completed initial pass",
+                output_doc="docs/agent_tasks/backend-dev-multibot.md",
+            ),
+            _platform_agent_card(
+                agent_id="frontend_dev",
+                name="Frontend Dev",
+                role="unified dashboard",
+                status_env="FRONTEND_AGENT_STATUS",
+                default_status="completed initial pass",
+                output_doc="docs/agent_tasks/frontend-dev-multibot.md",
+            ),
+            _platform_agent_card(
+                agent_id="security_reviewer",
+                name="Security Reviewer",
+                role="live gates + secrets + safety",
+                status_env="SECURITY_AGENT_STATUS",
+                default_status="pending",
+                output_doc="docs/polymarket_multi_bot/SECURITY_REVIEW.md",
+            ),
+            _platform_agent_card(
+                agent_id="cross_reviewer",
+                name="Cross / Adversarial Reviewer",
+                role="assumption and test-gap review",
+                status_env="CROSS_REVIEW_AGENT_STATUS",
+                default_status="pending",
+                output_doc="docs/polymarket_multi_bot/CROSS_REVIEW.md",
+            ),
+        ]
         return {
             "type": "polymarket_multi_bot_platform",
             "bot_count": len(bots),
+            "agent_count": len(agents),
             "live_enabled_count": sum(1 for bot in bots if bot["live_send_enabled"]),
             "paper_count": sum(1 for bot in bots if not bot["live_send_enabled"]),
             "error_count": sum(1 for bot in bots if bot["last_error"]),
             "bots": bots,
+            "agents": agents,
         }
 
     def _finalization_status(self, position) -> str:

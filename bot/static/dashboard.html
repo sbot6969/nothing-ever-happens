@@ -206,6 +206,12 @@ body::before {
 .bot-kpi span { display: block; color: var(--muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: .06em; }
 .bot-kpi strong { display: block; margin-top: 3px; font-size: .95rem; }
 .bot-error { color: var(--red); margin-top: 9px; font-size: .78rem; overflow-wrap: anywhere; }
+.platform-agents {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
 
 .platform-chart-wrap {
   margin-top: 14px;
@@ -572,6 +578,11 @@ th[data-sort].sort-desc::after {
       <article class="bot-card"><div class="bot-title"><div><div class="bot-name">Market-making</div><div class="bot-family">inventory-aware quoting</div></div><span class="pill paper">PAPER / DRY-RUN</span></div><div class="bot-kpis"><div class="bot-kpi"><span>Health</span><strong>planned</strong></div><div class="bot-kpi"><span>Paper / Live</span><strong>-- / 0</strong></div></div></article>
       <article class="bot-card"><div class="bot-title"><div><div class="bot-name">Normal-distribution AMM Allocation</div><div class="bot-family">portfolio allocator</div></div><span class="pill paper">PAPER / DRY-RUN</span></div><div class="bot-kpis"><div class="bot-kpi"><span>Health</span><strong>planned</strong></div><div class="bot-kpi"><span>Paper / Live</span><strong>-- / 0</strong></div></div></article>
     </div>
+
+    <div class="platform-agents" id="platform-agents">
+      <article class="bot-card"><div class="bot-title"><div><div class="bot-name">Deep Research Agent</div><div class="bot-family">source research + reports</div></div><span class="pill paper">running</span></div></article>
+      <article class="bot-card"><div class="bot-title"><div><div class="bot-name">Quant / Math Agent</div><div class="bot-family">modeling + backtest interpretation</div></div><span class="pill paper">running</span></div></article>
+    </div>
     <div class="platform-chart-wrap">
       <canvas id="platform-chart" width="1120" height="180"></canvas>
       <div class="trade-meta chart-legend"><span><i class="dot" style="background:#52d19c"></i>paper count</span><span><i class="dot" style="background:#ff7a7a"></i>live count</span><span><i class="dot" style="background:#e79d54"></i>PnL magnitude</span></div>
@@ -729,10 +740,30 @@ function drawPlatformChart(platform) {
   });
 }
 
+
+function renderPlatformAgents(platform) {
+  const host = document.getElementById("platform-agents");
+  if (!host || !platform) return;
+  const agents = Array.isArray(platform.agents) ? platform.agents : [];
+  if (!agents.length) {
+    host.innerHTML = '<div class="empty">Waiting for agent status</div>';
+    return;
+  }
+  host.innerHTML = agents.map(agent => `
+    <article class="bot-card" data-agent-id="${esc(agent.id)}">
+      <div class="bot-title">
+        <div><div class="bot-name">${esc(agent.name)}</div><div class="bot-family">${esc(agent.role)}</div></div>
+        <span class="pill paper">${esc(agent.status)}</span>
+      </div>
+      <div class="bot-kpis"><div class="bot-kpi"><span>Output</span><strong>${esc(shortText(agent.output_doc))}</strong></div></div>
+    </article>`).join("");
+}
+
 function renderPlatform(platform) {
   const host = document.getElementById("platform-bots");
   if (!host || !platform) return;
   drawPlatformChart(platform);
+  renderPlatformAgents(platform);
   const bots = Array.isArray(platform.bots) ? platform.bots : [];
   const note = document.getElementById("platform-note");
   if (note) {

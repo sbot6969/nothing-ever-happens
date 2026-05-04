@@ -47,7 +47,7 @@
 - [ ] Research agent: source-backed research docs and strategy ideas.
 - [x] Frontend agent: unified dashboard design and implementation.
 - [ ] Security reviewer: final review of code, configs, logging, live gates, secret handling.
-- [ ] Cross-test/adversarial review: one agent validates assumptions/test gaps from another.
+- [x] Cross-test/adversarial review: one agent validates assumptions/test gaps from another.
 
 ## 8. Release/push/runtime
 - [x] Run focused and full tests.
@@ -58,4 +58,15 @@
 
 ## 9. Recurring monitoring
 - [x] Install 30-minute recurring safe monitor/check job via launchd (`com.sbot.neh-multibot-monitor`).
-- [ ] Monitor re-validates this voice request, checks agents, checks dashboards/processes, and appends logs to daily memory/task docs.
+- [x] Monitor re-validates this voice request, checks agent registry, checks dashboards/processes, and appends logs to daily memory/task docs.
+
+## 10. Specialist agent system
+- [x] Define durable agent workflow in `docs/polymarket_multi_bot/AGENT_FLOW.md`.
+- [x] Create multi-bot agent registry in `docs/polymarket_multi_bot/AGENT_REGISTRY.md`.
+- [x] Create deep research agent task in `docs/agent_tasks/research-agent-multibot.md`.
+- [x] Create quant/math agent task in `docs/agent_tasks/quant-math-agent-multibot.md`.
+- [x] Deep research agent: produce appendix and updated implementation ideas.
+- [x] Quant/math agent: produce quant review and simulations/tests.
+- [x] Add agent/task status into dashboard.
+- [ ] Run security-reviewer after research/math/dev/dashboard integration.
+- [x] Run cross/adversarial review (completed in parallel with security review; see `CROSS_REVIEW.md` ordering note).

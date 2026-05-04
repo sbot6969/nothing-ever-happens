@@ -65,3 +65,8 @@ backtest_artifacts/
 daily_report.sh
 start.sh
 *.bak-*
+# Local scheduled monitor logs
+tasks/multibot_monitor.log
+tasks/multibot_monitor.launchd.out
+tasks/multibot_monitor.launchd.err
+tasks/multibot_monitor_summary.txt

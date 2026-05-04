@@ -106,6 +106,7 @@ def test_dashboard_portfolio_message_includes_four_bot_platform(monkeypatch):
     platform = message["platform"]
     assert platform["type"] == "polymarket_multi_bot_platform"
     assert platform["bot_count"] == 4
+    assert platform["agent_count"] == 6
     assert platform["live_enabled_count"] == 0
     bot_names = {bot["name"] for bot in platform["bots"]}
     assert bot_names == {
@@ -120,6 +121,10 @@ def test_dashboard_portfolio_message_includes_four_bot_platform(monkeypatch):
     assert whale["pnl_usd"] == 34.56
     assert whale["roi_pct"] == 12.5
     assert all("wallet" not in bot for bot in platform["bots"])
+    agent_names = {agent["name"] for agent in platform["agents"]}
+    assert "Deep Research Agent" in agent_names
+    assert "Quant / Math Agent" in agent_names
+    assert all("key" not in agent for agent in platform["agents"])
 
 
 def test_dashboard_platform_model_sanitizes_error(monkeypatch):
@@ -133,6 +138,17 @@ def test_dashboard_platform_model_sanitizes_error(monkeypatch):
     assert len(market_maker["last_error"]) == 180
 
 
+def test_dashboard_does_not_report_live_counts_when_live_gate_is_off(monkeypatch):
+    monkeypatch.setenv("BOT_MODE", "paper")
+    monkeypatch.setenv("WHALE_COPY_LIVE_SIGNALS", "4")
+    server = DashboardServer(port=0, portfolio_state=_make_portfolio_state())
+
+    message = server._make_portfolio_message(force=True)
+
+    whale = next(bot for bot in message["platform"]["bots"] if bot["id"] == "whale_alt_copy")
+    assert whale["live_send_enabled"] is False
+    assert whale["live_signal_count"] == 0
+    assert whale["metrics"]["configured_live_signal_count"] == 4
 
 
 def test_dashboard_portfolio_message_includes_finalization_info():

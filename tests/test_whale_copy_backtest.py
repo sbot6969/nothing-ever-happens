@@ -98,6 +98,30 @@ def test_backtest_accounts_for_spread_slippage_liquidity_and_resolution() -> Non
     }
 
 
+def test_backtest_copies_relative_market_size_whale_below_absolute_default() -> None:
+    result = run_backtest(
+        [
+            {
+                "proxyWallet": "0x3333333333333333333333333333333333333333",
+                "side": "BUY",
+                "asset": "asset-relative",
+                "size": 6_000,
+                "price": 0.5,
+                "timestamp": 1,
+                "transactionHash": "0xrelative",
+                "history_count": 1,
+                "market_size_usd": 10_000,
+                "liquidity_usd": 10_000,
+            }
+        ],
+        {"asset-relative": Resolution(asset="asset-relative", payout=1.0)},
+    )
+
+    assert len(result.copied) == 1
+    assert result.copied[0].whale_notional_usd == pytest.approx(3_000)
+    assert result.rejected == []
+
+
 def test_backtest_rejects_startup_bootstrap_and_stale_signals() -> None:
     config = WhaleBacktestConfig(
         min_whale_notional_usd=200,
