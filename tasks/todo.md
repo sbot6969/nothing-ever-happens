@@ -44,7 +44,7 @@ _TBD._
 - [x] Commit remaining safe paper-mode changes.
 - [x] Push branch to GitHub fork.
 - [x] Restart/verify paper dashboards/runtimes after tests pass: main HTTPS 8765=200, whale HTTPS 8766=200, bot processes main+whale only.
-- [ ] Confirm next scheduled 30-minute Telegram summary arrives.
+- [x] Confirm next scheduled 30-minute Telegram summary arrives.
 - [blocked] Live financial actions require separate explicit typed confirmation.
 
 
@@ -71,12 +71,12 @@ _TBD._
 - [blocked] Wallet creation/funding remains blocked.
 
 ## 2026-05-04 18:xx — dashboard missing specialist agents / full voice TODO pass
-- [ ] Root-cause why research/quant specialists are not visible as separate dashboard agents.
-- [ ] Create durable OpenClaw agent definitions for `research-agent` and `quant-math-agent` (not backend-dev session aliases).
-- [ ] Add both agents to dashboard-visible OpenClaw agent list and verify cards appear.
-- [ ] Launch both new specialist agents with research/quant tasks.
-- [ ] Re-extract all available voice transcripts and write a maximal detailed task list from every voice message.
-- [ ] Cross-check detailed voice TODO against existing project docs/tasks and update missing identifiers/status.
+- [x] Root-cause why research/quant specialists are not visible as separate dashboard agents.
+- [x] Create durable OpenClaw agent definitions for `research-agent` and `quant-math-agent` (not backend-dev session aliases).
+- [x] Add both agents to dashboard-visible OpenClaw agent list and verify cards appear.
+- [x] Launch both new specialist agents with research/quant tasks.
+- [x] Re-extract all available voice transcripts and write a maximal detailed task list from every voice message.
+- [x] Cross-check detailed voice TODO against existing project docs/tasks and update missing identifiers/status.
 - [ ] Continue safe implementation tasks; keep live finance actions blocked.
 
 ### Progress / review
@@ -86,3 +86,10 @@ _TBD._
 - [x] Created full detailed voice task list: `docs/polymarket_multi_bot/VOICE_TASKS_DETAILED_FROM_GS.md`.
 - [x] Integrated follow-up docs from both specialist agents: `RESEARCH_AGENT_FOLLOWUP.md`, `QUANT_AGENT_FOLLOWUP.md`.
 - [x] Verification: specialist quant agent ran focused pytest: 22 passed.
+
+## 2026-05-04 18:20 — autonomous voice task execution pass
+- [x] Do safe voice-task TODOs sequentially without waiting for further user input.
+- [ ] Keep live financial actions blocked unless separate typed confirmation + fresh security review is provided.
+- [x] Strengthen 30-minute monitor so every tick reviews detailed voice task list, open TODOs, and actual specialist/subagent states.
+- [x] Continue implementation from highest-priority safe list: provenance/market_size_source, NEH adapter, larger/OOS reports, source audit, tests, commits/pushes.
+- [ ] Send progress pings every 30 minutes and final completion/blocked summary only when all safe tasks are complete.

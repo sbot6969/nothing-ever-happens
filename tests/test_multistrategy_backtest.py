@@ -38,7 +38,9 @@ def test_compare_strategies_returns_all_four_requested_families() -> None:
 
     assert [result.strategy for result in results] == list(STRATEGY_FAMILIES)
     assert results[0].strategy == "nothing_happens"
-    assert results[0].copied_or_actions == 0
+    assert results[0].copied_or_actions == 2
+    assert results[0].total_notional_usd > 0
+    assert "order-book-free proxy" in results[0].notes
     assert results[1].strategy == "whale_copy"
     assert results[1].copied_or_actions == 2
     assert all(result.total_notional_usd >= 0 for result in results)

@@ -34,6 +34,28 @@ class DownloadManifest:
     notes: list[str]
 
 
+@dataclass(frozen=True)
+class BacktestProvenance:
+    """Primary-source fields used to enrich an offline public snapshot."""
+
+    market_size_source: str
+    market_size_field: str
+    liquidity_source: str
+    liquidity_field: str
+    trades_source: str
+    resolution_source: str
+
+
+PUBLIC_BACKTEST_PROVENANCE = BacktestProvenance(
+    market_size_source="Polymarket Gamma API closed-market volumeNum",
+    market_size_field="market_volume_usd",
+    liquidity_source="Polymarket Gamma API closed-market liquidityNum when positive",
+    liquidity_field="liquidity_usd",
+    trades_source="Polymarket Data API /trades market=<conditionId>",
+    resolution_source="Polymarket Gamma API closed-market outcomePrices/clobTokenIds settled at 0/1",
+)
+
+
 def _fetch_json(url: str, *, timeout: float = 30.0, attempts: int = 3, backoff_sec: float = 1.0) -> Any:
     req = Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
     last_error: Exception | None = None
@@ -145,12 +167,15 @@ def build_snapshot(*, market_limit: int, trades_per_market: int, sleep_sec: floa
             enriched["history_count"] = wallet_seen_count[wallet]
             enriched["market_category"] = meta["category"]
             enriched["market_volume_usd"] = meta["volumeNum"]
+            enriched["market_size_usd"] = meta["volumeNum"]
+            enriched["market_size_source"] = PUBLIC_BACKTEST_PROVENANCE.market_size_source
             # Closed markets often report current liquidity as 0 after settlement.
             # Do not turn that into a zero executable-size cap; keep the field absent
             # unless Gamma reports positive liquidity. Volume remains available as
             # a coarse historical activity proxy.
             if meta["liquidityNum"] > 0:
                 enriched["liquidity_usd"] = meta["liquidityNum"]
+                enriched["liquidity_source"] = PUBLIC_BACKTEST_PROVENANCE.liquidity_source
             trades.append(enriched)
 
     return {"markets": markets, "trades": trades, "resolutions": resolutions}
@@ -172,6 +197,7 @@ def write_snapshot(snapshot: dict[str, Any], out_dir: Path, *, market_limit: int
             "Public Gamma closed markets + Data API trades only; no private data or live trading.",
             "history_count is first-visible within this downloaded snapshot, not proof of wallet's entire Polymarket lifetime.",
             "Closed markets with non-0/1 outcome prices are skipped as unresolved/ambiguous.",
+            f"market_size_usd uses {PUBLIC_BACKTEST_PROVENANCE.market_size_source}; it is a historical activity proxy, not current executable depth.",
         ],
     )
     (out_dir / "manifest.json").write_text(json.dumps(asdict(manifest), indent=2, sort_keys=True) + "\n")

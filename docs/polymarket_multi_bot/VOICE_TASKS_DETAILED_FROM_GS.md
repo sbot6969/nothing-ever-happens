@@ -73,8 +73,8 @@ Scope: all available project-relevant voice transcripts re-read from the local c
 - [x] Research position-arbitrage and probability-distribution/normal-distribution allocation logic.
 - [x] Write research findings as Markdown docs.
 - [x] Convert research findings into implementable strategy TODOs.
-- [ ] Add a source audit table with URL, fetch status, primary/secondary classification, and covered strategy area.
-- [ ] Replace any stale/broken citations.
+- [x] Add a source audit table with URL, fetch status, primary/secondary classification, and covered strategy area.
+- [x] Replace any stale/broken citations.
 - [ ] Add more primary Polymarket docs for historical data provenance, cancellations, websocket/order lifecycle, rewards, and market metadata.
 
 ## G. Whale filter update from voice
@@ -84,7 +84,7 @@ Scope: all available project-relevant voice transcripts re-read from the local c
 - [x] For the 30% relative rule, require market size to be at least `$10,000`.
 - [x] Add tests for both absolute and relative criteria.
 - [x] Add/validate backtest behavior for relative-market-size whales below `$10,000` notional.
-- [ ] Define the exact primary-source-backed `market_size` field/proxy for production.
+- [x] Define the exact primary-source-backed `market_size` field/proxy for production.
 
 ## H. Four-bot platform architecture requested
 
@@ -97,7 +97,7 @@ The user explicitly wanted one large platform split into four sub-bots/strategy 
 - [x] Make them part of one unified system, not four unrelated repos.
 - [x] Build shared strategy abstractions/report shapes.
 - [x] Keep all new strategy families paper/dry-run by default.
-- [ ] Implement real executable adapter for the existing Nothing Ever Happens baseline.
+- [x] Implement real executable adapter for the existing Nothing Ever Happens baseline.
 - [ ] Define final production per-bot config schema and capital/wallet allocation interfaces.
 
 ## I. Market-making bot requirements
@@ -151,7 +151,7 @@ The user explicitly wanted one large platform split into four sub-bots/strategy 
 - [x] Run developer agents for backend/dashboard foundations.
 - [x] Run security-reviewer.
 - [x] Run cross/adversarial reviewer.
-- [ ] Wait for the newly launched durable specialist-agent follow-up runs to finish, integrate their output, and commit/push if needed.
+- [x] Wait for the newly launched durable specialist-agent follow-up runs to finish, integrate their output, and commit/push if needed.
 
 ## N. Cross-review/security requirements
 

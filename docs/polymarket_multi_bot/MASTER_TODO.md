@@ -25,7 +25,7 @@
 - [x] Convert research into implementable strategy specs in `docs/polymarket_multi_bot/STRATEGIES.md`.
 
 ## 4. Strategy families
-- [ ] Existing Nothing Ever Happens strategy: document baseline and backtest metrics.
+- [x] Existing Nothing Ever Happens strategy: document baseline and backtest metrics.
 - [ ] Whale/ALT copy bot: improve whale filter, validation, paper runtime.
 - [x] Market-making bot: design paper quote generator with inventory/spread/risk controls.
 - [x] Normal-distribution AMM allocation bot: design capital allocation/sizing model and paper simulator.
@@ -84,4 +84,4 @@
 ## 12. Detailed all-voice task extraction
 - [x] Re-read all available project-relevant voice transcripts and create `docs/polymarket_multi_bot/VOICE_TASKS_DETAILED_FROM_GS.md`.
 - [x] Fix dashboard-visible durable `research-agent` and `quant-math-agent`, then launch both with follow-up tasks.
-- [ ] Integrate the newly launched durable agents' follow-up outputs.
+- [x] Integrate the newly launched durable agents' follow-up outputs.

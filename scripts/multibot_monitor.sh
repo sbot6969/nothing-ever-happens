@@ -22,7 +22,34 @@ process_snapshot="$(pgrep -af 'bot\.main|bot\.whale_copy|openclaw agent' || true
 git_status="$(git -C "$REPO" status --short || true)"
 recent_commits="$(git -C "$REPO" --no-pager log --since='30 minutes ago' --oneline --max-count=10 || true)"
 agent_rows="$(grep '^|' "$REPO/docs/polymarket_multi_bot/AGENT_REGISTRY.md" 2>/dev/null | grep -v -- '---' | tail -n +2 || true)"
-open_todos_count="$(grep -RhcE '^- \[ \]|^- \[blocked\]' "$REPO/docs/polymarket_multi_bot/MASTER_TODO.md" "$REPO/tasks/todo.md" 2>/dev/null | awk '{s+=$1} END{print s+0}')"
+open_todos_count="$(grep -RhcE '^- \[ \]|^- \[blocked\]' "$REPO/docs/polymarket_multi_bot/MASTER_TODO.md" "$REPO/docs/polymarket_multi_bot/VOICE_TASKS_DETAILED_FROM_GS.md" "$REPO/tasks/todo.md" 2>/dev/null | awk '{s+=$1} END{print s+0}')"
+voice_open_todos="$(grep -nE '^- \[ \]|^- \[blocked\]' "$REPO/docs/polymarket_multi_bot/VOICE_TASKS_DETAILED_FROM_GS.md" 2>/dev/null | head -25 || true)"
+actual_agent_sessions="$(python3 - <<'PY2' 2>/dev/null
+import json
+from pathlib import Path
+root=Path('/Users/sbot/.openclaw/agents')
+rows=[]
+for sp in sorted(root.glob('*/sessions/sessions.json')):
+    aid=sp.parts[-3]
+    try:
+        data=json.loads(sp.read_text())
+    except Exception as e:
+        rows.append(f'- {aid}: sessions unreadable ({e})')
+        continue
+    if not data:
+        rows.append(f'- {aid}: no sessions')
+        continue
+    vals=sorted(data.values(), key=lambda x: x.get('updatedAt') or 0, reverse=True)[:3]
+    bits=[]
+    for v in vals:
+        sid=v.get('sessionId') or '?'
+        status=v.get('status') or ('done' if not Path(str(sp).replace('sessions.json', sid+'.jsonl.lock')).exists() else 'running')
+        updated=v.get('updatedAt') or 0
+        bits.append(f'{sid}:{status}:{updated}')
+    rows.append(f'- {aid}: ' + '; '.join(bits))
+print('\n'.join(rows[:30]))
+PY2
+)"
 
 {
   echo ""
@@ -50,7 +77,13 @@ open_todos_count="$(grep -RhcE '^- \[ \]|^- \[blocked\]' "$REPO/docs/polymarket_
   echo "$git_status"
   echo ""
   echo "### Open TODO snapshot"
-  grep -nE '^- \[ \]|^- \[blocked\]' "$REPO/docs/polymarket_multi_bot/MASTER_TODO.md" "$REPO/tasks/todo.md" 2>/dev/null | head -80 || true
+  grep -nE '^- \[ \]|^- \[blocked\]' "$REPO/docs/polymarket_multi_bot/MASTER_TODO.md" "$REPO/docs/polymarket_multi_bot/VOICE_TASKS_DETAILED_FROM_GS.md" "$REPO/tasks/todo.md" 2>/dev/null | head -120 || true
+  echo ""
+  echo "### Detailed voice task open snapshot"
+  echo "$voice_open_todos"
+  echo ""
+  echo "### Actual OpenClaw agent session states"
+  echo "$actual_agent_sessions"
 } >> "$LOG" 2>&1
 
 {
@@ -63,8 +96,11 @@ open_todos_count="$(grep -RhcE '^- \[ \]|^- \[blocked\]' "$REPO/docs/polymarket_
     echo "- новых git-коммитов нет"
   fi
   echo ""
-  echo "Агенты:"
+  echo "Агенты из registry:"
   echo "$agent_rows" | awk -F'|' 'NF>=5 {gsub(/^ +| +$/, "", $2); gsub(/^ +| +$/, "", $4); print "- " $2 ": " $4}' | head -8
+  echo ""
+  echo "Фактические сессии агентов:"
+  echo "$actual_agent_sessions" | grep -E 'research-agent|quant-math-agent|backend-dev|frontend-dev|security-reviewer|main' | head -10
   echo ""
   echo "Дашборды/процессы:"
   echo "- main 8765 HTTPS: $main_code"
@@ -73,6 +109,8 @@ open_todos_count="$(grep -RhcE '^- \[ \]|^- \[blocked\]' "$REPO/docs/polymarket_
   echo "- bot processes: $(echo "$process_snapshot" | grep -c . | tr -d ' ')"
   echo ""
   echo "TODO открыто/blocked: $open_todos_count"
+  echo "Главные открытые пункты из ГС:"
+  echo "$voice_open_todos" | sed 's#^.*:- \[ \] #- #' | sed 's#^.*:- \[blocked\] #- [blocked] #' | head -8
   echo "Live-финансы: заблокированы до typed-confirmation."
 } > "$SUMMARY"
 
@@ -82,14 +120,18 @@ open_todos_count="$(grep -RhcE '^- \[ \]|^- \[blocked\]' "$REPO/docs/polymarket_
   echo "- Revalidated sources: \`neh-bot/docs/polymarket_multi_bot/VOICE_REQUEST_2026-05-04.md\`, \`AGENT_FLOW.md\`, TODOs, and agent registry."
   echo "- Dashboard checks: main=$main_code, whale_https=$whale_https_code, whale_http=$whale_http_code."
   echo "- Recent commits last 30m: $(echo "$recent_commits" | grep -c . | tr -d ' ')."
+  echo "- Open/blocked TODO count across master+detailed voice+task docs: $open_todos_count."
+  echo "- Agent sessions checked: actual OpenClaw sessions summary recorded in \`neh-bot/tasks/multibot_monitor.log\`."
   echo "- Detailed monitor log: \`neh-bot/tasks/multibot_monitor.log\`."
   echo "- Financial/live actions remain blocked pending typed confirmation."
 } >> "$MEM"
 
 if [ "$WAKE_AGENT" = "true" ]; then
   if [ -x "$OPENCLAW" ]; then
-    "$OPENCLAW" system event --mode now --timeout 30000 --text "MULTIBOT_MONITOR_SUMMARY_TO_TELEGRAM target=$TG_TARGET channel=$TG_CHANNEL
-$(cat "$SUMMARY")" >> "$LOG" 2>&1 || true
+    "$OPENCLAW" message send --channel "$TG_CHANNEL" --target "$TG_TARGET" --message "$(cat "$SUMMARY")" >> "$LOG" 2>&1 \
+      || "$OPENCLAW" system event --mode now --timeout 30000 --text "MULTIBOT_MONITOR_SUMMARY_TO_TELEGRAM target=$TG_TARGET channel=$TG_CHANNEL
+$(cat "$SUMMARY")" >> "$LOG" 2>&1 \
+      || true
   else
     echo "openclaw binary not found at $OPENCLAW" >> "$LOG"
   fi

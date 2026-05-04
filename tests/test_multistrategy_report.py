@@ -51,6 +51,7 @@ def test_generate_report_writes_required_metrics(tmp_path: Path) -> None:
     assert "Max exposure" in text
     assert "Skipped" in text
     assert "Evidence" in text
+    assert "market_size_source" in json.dumps([row.provenance for row in results])
     assert len(results) == 4
     payload = json.loads(out_json.read_text(encoding="utf-8"))
     assert {row["strategy"] for row in payload["results"]} == {"nothing_happens", "whale_copy", "market_making", "normal_distribution_amm"}

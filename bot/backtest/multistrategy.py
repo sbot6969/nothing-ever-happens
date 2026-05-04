@@ -39,6 +39,7 @@ class StrategyBacktestResult:
     evidence_label: str = "not_assessed"
     evidence_reasons: tuple[str, ...] = ()
     hit_rate_interval_pct: tuple[float, float] = (0.0, 100.0)
+    provenance: dict[str, str] | None = None
 
 
 def _safe_float(value: Any) -> float:
@@ -47,6 +48,17 @@ def _safe_float(value: Any) -> float:
     except (TypeError, ValueError):
         return 0.0
     return parsed if parsed >= 0 else 0.0
+
+
+def _market_size_source_summary(trades: list[dict[str, Any]]) -> dict[str, str]:
+    counts: dict[str, int] = {}
+    for row in trades:
+        source = str(row.get("market_size_source") or "missing")
+        counts[source] = counts.get(source, 0) + 1
+    if not counts:
+        return {"market_size_source": "no_trades"}
+    top = sorted(counts.items(), key=lambda item: (-item[1], item[0]))[:3]
+    return {"market_size_source": "; ".join(f"{name} ({count})" for name, count in top)}
 
 
 def _resolved_edge(row: dict[str, Any], resolutions: dict[str, Resolution]) -> float:
@@ -84,19 +96,52 @@ def _skip_counts(reasons: Iterable[str]) -> dict[str, int]:
 
 
 def _nothing_happens(trades: list[dict[str, Any]], resolutions: dict[str, Resolution]) -> StrategyBacktestResult:
+    # Executable paper adapter for the existing Nothing Ever Happens entry shape.
+    # The live strategy buys the cheap side subject to price/liquidity/depth/cash
+    # gates. Historical trade snapshots are not order books, so this adapter uses
+    # only public trade/market metadata as a conservative would-enter proxy and
+    # labels the evidence accordingly.
+    actions: list[tuple[dict[str, Any], float]] = []
+    skipped: list[str] = []
+    for row in trades:
+        price = _safe_float(row.get("price"))
+        if not 0 < price <= 0.65:
+            skipped.append("outside_max_entry_price")
+            continue
+        market_size = _safe_float(row.get("market_size_usd") or row.get("market_volume_usd"))
+        if market_size and market_size < 10_000:
+            skipped.append("below_min_market_size_proxy")
+            continue
+        liquidity = _safe_float(row.get("liquidity_usd"))
+        if liquidity and liquidity < 100:
+            skipped.append("below_min_liquidity_proxy")
+            continue
+        raw_notional = _safe_float(row.get("size")) * price
+        target = min(5.0, raw_notional * 0.02)
+        if target <= 0:
+            skipped.append("zero_target_notional")
+            continue
+        actions.append((row, round(max(1.0, target), 6)))
+    pnls = [size * _resolved_edge(row, resolutions) for row, size in actions]
+    notional = round(sum(size for _, size in actions), 6)
+    pnl = round(sum(pnls), 6)
+    roi = round((pnl / notional * 100.0), 6) if notional else 0.0
     return _assess_result(StrategyBacktestResult(
         strategy="nothing_happens",
         trades_seen=len(trades),
-        copied_or_actions=0,
-        total_notional_usd=0.0,
-        total_pnl_usd=0.0,
-        roi_pct=0.0,
-        max_drawdown_usd=0.0,
-        notes="Baseline safety strategy: observes markets and takes no positions until wrapped into StrategySignal.",
-        rejected_or_skipped=len(trades),
-        skipped_reasons={"baseline_not_wrapped_yet": len(trades)},
+        copied_or_actions=len(actions),
+        total_notional_usd=notional,
+        total_pnl_usd=pnl,
+        roi_pct=roi,
+        max_drawdown_usd=round(abs(min(0.0, pnl)), 6),
+        notes="Executable paper adapter for existing entry gates using public trade snapshots as an order-book-free proxy; needs L2 replay before production claims.",
+        hit_rate_pct=round(sum(1 for value in pnls if value > 0) / len(pnls) * 100.0, 6) if pnls else 0.0,
+        turnover_usd=notional,
+        max_exposure_usd=max((size for _, size in actions), default=0.0),
+        rejected_or_skipped=len(skipped),
+        skipped_reasons=_skip_counts(skipped),
+        provenance=_market_size_source_summary(trades),
     ))
-
 
 def _whale_copy(trades: list[dict[str, Any]], resolutions: dict[str, Resolution]) -> StrategyBacktestResult:
     result = run_backtest(trades, resolutions, WhaleBacktestConfig())
@@ -115,6 +160,7 @@ def _whale_copy(trades: list[dict[str, Any]], resolutions: dict[str, Resolution]
         max_exposure_usd=max((copy.copy_notional_usd for copy in result.copied), default=0.0),
         rejected_or_skipped=len(result.rejected),
         skipped_reasons=_skip_counts(row.reason for row in result.rejected),
+        provenance=_market_size_source_summary(trades),
     ))
 
 
@@ -141,6 +187,7 @@ def _market_making(trades: list[dict[str, Any]], resolutions: dict[str, Resoluti
         max_exposure_usd=max(notionals, default=0.0),
         rejected_or_skipped=len(trades) - len(actions),
         skipped_reasons=_skip_counts("outside_centered_price_band" for row in trades if row not in actions),
+        provenance=_market_size_source_summary(trades),
     ))
 
 
@@ -177,6 +224,7 @@ def _normal_distribution_amm(trades: list[dict[str, Any]], resolutions: dict[str
         max_exposure_usd=max((size for _, size in actions), default=0.0),
         rejected_or_skipped=len(skipped),
         skipped_reasons=_skip_counts(skipped),
+        provenance=_market_size_source_summary(trades),
     ))
 
 

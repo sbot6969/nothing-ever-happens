@@ -118,6 +118,7 @@ def write_markdown(results: list[StrategyBacktestResult], snapshot_dir: Path, ou
             f"- Top reasons: {_top_reasons(row)}",
             f"- Evidence reasons: {'; '.join(row.evidence_reasons) if row.evidence_reasons else 'none'}",
             f"- Notes: {row.notes}",
+            f"- Provenance: {json.dumps(row.provenance or {}, sort_keys=True)}",
             "",
         ])
 
@@ -128,7 +129,7 @@ def write_markdown(results: list[StrategyBacktestResult], snapshot_dir: Path, ou
             "- Add historical order-book snapshots to replace market-making and AMM proxy fills with queue/depth-aware simulations.",
             "- Split results by category, close-time bucket, liquidity bucket, and whale-wallet cohort.",
             "- Run walk-forward/OOS validation instead of scoring wallets on the same cached sample used for reporting.",
-            "- Add Nothing Ever Happens strategy adapter so it emits standard `StrategySignal` and skipped reasons.",
+            "- Replace trade-snapshot proxies with historical L2/order lifecycle data before production claims.",
             "- Keep all live-financial actions blocked until separate typed confirmation and another security review.",
         ]
     )
