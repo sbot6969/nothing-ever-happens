@@ -101,6 +101,13 @@ Paper/offline validation only. These tables do not authorize live trading, walle
 | `normal_distribution_amm` | 100 | -0.93% | -1.93% |
 | `normal_distribution_amm` | 200 | -0.93% | -2.93% |
 
+## Conservative simulation coverage added
+
+- Market-making lifecycle simulator covers quote placed, replaced, cancelled, stale, would-fill, missed-fill, and queue-ahead cases.
+- Liquidity reward economics are modeled only as a bounded proxy; not a real maker-reward claim.
+- Probability/AMM helpers require `p_model` confidence gates and report Brier/log-loss calibration.
+- Negative-risk/`Other` placeholder detection is tested so allocation logic does not silently assume a complete binary pair.
+
 ## Interpretation
 
 - Any strategy whose result only appears in one cohort is treated as underpowered/possibly overfit.

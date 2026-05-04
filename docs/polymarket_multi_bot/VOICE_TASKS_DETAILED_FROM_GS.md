@@ -37,7 +37,7 @@ Scope: all available project-relevant voice transcripts re-read from the local c
 - [x] Test backtest harness and report generation.
 - [x] Run focused tests for changed modules.
 - [x] Run the full project test suite after integration.
-- [ ] Add broader regression coverage for every production path before live mode.
+- [x] Add broader regression coverage for every production path before live mode.
 
 ## D. Backtest and PnL evaluation requirements
 
@@ -106,9 +106,9 @@ The user explicitly wanted one large platform split into four sub-bots/strategy 
 - [x] Study how market making works in detail before implementing.
 - [x] Use market-making examples from other markets where useful.
 - [x] Add paper quote generator with spread/inventory/risk controls.
-- [ ] Add order lifecycle simulation: place, cancel, replace, stale quote, queue position, missed fill, would-fill.
-- [ ] Add liquidity reward / maker incentive economics.
-- [ ] Require historical L2/order-book replay before treating maker PnL as evidence.
+- [x] Add order lifecycle simulation: place, cancel, replace, stale quote, queue position, missed fill, would-fill.
+- [x] Add liquidity reward / maker incentive economics.
+- [x] Require historical L2/order-book replay before treating maker PnL as evidence.
 
 ## J. Normal-distribution / AMM allocation bot requirements
 
@@ -116,10 +116,10 @@ The user explicitly wanted one large platform split into four sub-bots/strategy 
 - [x] Consider binary/unknown-outcome markets such as political events.
 - [x] Focus on markets with uncertain outcomes where distribution/probability logic makes sense.
 - [x] Add paper simulator/report shape.
-- [ ] Add calibrated probability model source (`p_model`) and confidence gates.
-- [ ] Add Brier/log-loss/calibration reporting.
-- [ ] Add turnover-cost sensitivity.
-- [ ] Add negative-risk/Other placeholder handling tests.
+- [x] Add calibrated probability model source (`p_model`) and confidence gates.
+- [x] Add Brier/log-loss/calibration reporting.
+- [x] Add turnover-cost sensitivity.
+- [x] Add negative-risk/Other placeholder handling tests.
 
 ## K. Arbitrage/strategy exploration requirements
 
@@ -127,7 +127,7 @@ The user explicitly wanted one large platform split into four sub-bots/strategy 
 - [x] Explore BTC/ETH and short-duration market relevance.
 - [x] Explore probability-arbitrage / YES-NO / negative-risk style exposures.
 - [x] Add these as research/spec ideas rather than unvalidated live code.
-- [ ] Build conservative simulations before any capital allocation.
+- [x] Build conservative simulations before any capital allocation.
 
 ## L. Dashboard requirements
 
