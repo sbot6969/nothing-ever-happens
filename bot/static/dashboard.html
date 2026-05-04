@@ -148,6 +148,95 @@ body::before {
   gap: 18px;
 }
 
+.chart-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.platform-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.bot-card {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(255, 248, 236, 0.04);
+  padding: 13px;
+}
+
+.bot-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.bot-name { font-weight: 800; }
+.bot-family { color: var(--muted); font-size: 0.75rem; margin-top: 2px; }
+
+.pill {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 0.72rem;
+  white-space: nowrap;
+  background: var(--surface-strong);
+}
+
+.pill.paper { color: var(--green); }
+.pill.live { color: var(--red); }
+
+.bot-kpis {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.bot-kpi {
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+
+.bot-kpi span { display: block; color: var(--muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: .06em; }
+.bot-kpi strong { display: block; margin-top: 3px; font-size: .95rem; }
+.bot-error { color: var(--red); margin-top: 9px; font-size: .78rem; overflow-wrap: anywhere; }
+
+.platform-chart-wrap {
+  margin-top: 14px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.platform-chart-wrap canvas {
+  width: 100%;
+  height: 180px;
+}
+
+.chart-card canvas {
+  width: 100%;
+  height: 190px;
+}
+
+.chart-legend {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-right: 5px;
+}
+
 .control-panel {
   margin-bottom: 18px;
 }
@@ -376,7 +465,9 @@ th[data-sort].sort-desc::after {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .layout {
+  .layout,
+  .platform-grid,
+  .chart-row {
     grid-template-columns: 1fr;
   }
 }
@@ -470,6 +561,23 @@ th[data-sort].sort-desc::after {
     </div>
   </div>
 
+  <section class="panel control-panel" id="platform-panel">
+    <div class="panel-head">
+      <h2 class="panel-title">Unified Polymarket Platform</h2>
+      <div class="panel-note" id="platform-note">four-bot paper-first overview</div>
+    </div>
+    <div class="platform-grid" id="platform-bots">
+      <article class="bot-card"><div class="bot-title"><div><div class="bot-name">Nothing Ever Happens</div><div class="bot-family">baseline strategy</div></div><span class="pill paper">PAPER / DRY-RUN</span></div><div class="bot-kpis"><div class="bot-kpi"><span>Health</span><strong>waiting</strong></div><div class="bot-kpi"><span>Paper / Live</span><strong>-- / 0</strong></div></div></article>
+      <article class="bot-card"><div class="bot-title"><div><div class="bot-name">Whale / ALT Copy</div><div class="bot-family">copy trading</div></div><span class="pill paper">PAPER / DRY-RUN</span></div><div class="bot-kpis"><div class="bot-kpi"><span>Health</span><strong>waiting</strong></div><div class="bot-kpi"><span>Paper / Live</span><strong>-- / 0</strong></div></div></article>
+      <article class="bot-card"><div class="bot-title"><div><div class="bot-name">Market-making</div><div class="bot-family">inventory-aware quoting</div></div><span class="pill paper">PAPER / DRY-RUN</span></div><div class="bot-kpis"><div class="bot-kpi"><span>Health</span><strong>planned</strong></div><div class="bot-kpi"><span>Paper / Live</span><strong>-- / 0</strong></div></div></article>
+      <article class="bot-card"><div class="bot-title"><div><div class="bot-name">Normal-distribution AMM Allocation</div><div class="bot-family">portfolio allocator</div></div><span class="pill paper">PAPER / DRY-RUN</span></div><div class="bot-kpis"><div class="bot-kpi"><span>Health</span><strong>planned</strong></div><div class="bot-kpi"><span>Paper / Live</span><strong>-- / 0</strong></div></div></article>
+    </div>
+    <div class="platform-chart-wrap">
+      <canvas id="platform-chart" width="1120" height="180"></canvas>
+      <div class="trade-meta chart-legend"><span><i class="dot" style="background:#52d19c"></i>paper count</span><span><i class="dot" style="background:#ff7a7a"></i>live count</span><span><i class="dot" style="background:#e79d54"></i>PnL magnitude</span></div>
+    </div>
+  </section>
+
   <section class="panel control-panel">
     <div class="panel-head">
       <h2 class="panel-title">Position Cap</h2>
@@ -477,6 +585,24 @@ th[data-sort].sort-desc::after {
     </div>
     <div class="trade-meta" id="target-meta">Open -- | Pending -- | Remaining -- | Target -- | Opened --</div>
   </section>
+
+  <div class="chart-row">
+    <section class="panel chart-card">
+      <div class="panel-head"><h2 class="panel-title">Bot Market Stats</h2><div class="panel-note">monitored / eligible / in-range</div></div>
+      <canvas id="market-chart" width="520" height="190"></canvas>
+      <div class="trade-meta chart-legend"><span><i class="dot" style="background:#e79d54"></i>monitored</span><span><i class="dot" style="background:#52d19c"></i>eligible</span><span><i class="dot" style="background:#ffbf69"></i>in range</span></div>
+    </section>
+    <section class="panel chart-card">
+      <div class="panel-head"><h2 class="panel-title">Portfolio Value</h2><div class="panel-note">cash + positions</div></div>
+      <canvas id="portfolio-chart" width="520" height="190"></canvas>
+      <div class="trade-meta chart-legend"><span><i class="dot" style="background:#52d19c"></i>cash</span><span><i class="dot" style="background:#7cc7ff"></i>positions</span><span><i class="dot" style="background:#e79d54"></i>total</span></div>
+    </section>
+    <section class="panel chart-card">
+      <div class="panel-head"><h2 class="panel-title">Trade Flow</h2><div class="panel-note">ledger actions over session</div></div>
+      <canvas id="trade-chart" width="520" height="190"></canvas>
+      <div id="trade-chart-note" class="trade-meta">waiting for ledger events</div>
+    </section>
+  </div>
 
   <div class="layout">
     <section class="panel">
@@ -528,6 +654,115 @@ const positionsBody = document.getElementById("positions-body");
 const tradeItems = [];
 const resolutionsBySlug = {};
 let latestPortfolio = null;
+const marketSeries = [];
+const portfolioSeries = [];
+const tradeCounts = {};
+function drawLineChart(canvasId, series, opts = {}) {
+  const c = document.getElementById(canvasId); if (!c) return; const ctx = c.getContext('2d'); const w=c.width, h=c.height; ctx.clearRect(0,0,w,h);
+  ctx.strokeStyle='rgba(255,234,205,.14)'; ctx.lineWidth=1; ctx.fillStyle='#b2a796'; ctx.font='11px system-ui';
+  for(let i=0;i<4;i++){const y=18+i*(h-36)/3;ctx.beginPath();ctx.moveTo(42,y);ctx.lineTo(w-10,y);ctx.stroke();}
+  const values=series.flatMap(s=>s.data||[]).map(Number).filter(Number.isFinite); const max=Math.max(opts.max||0,...values,1); const min=Math.min(opts.min??0,...values,0); const span=max-min||1;
+  ctx.fillText(max.toFixed(opts.digits??0),4,22); ctx.fillText(min.toFixed(opts.digits??0),4,h-14);
+  for(const s of series){const data=s.data||[]; if(!data.length) continue; ctx.strokeStyle=s.color; ctx.lineWidth=2; ctx.beginPath(); data.forEach((v,i)=>{const x=42+(w-56)*(data.length===1?1:i/(data.length-1)); const y=(h-18)-((Number(v)-min)/span)*(h-38); if(i===0)ctx.moveTo(x,y); else ctx.lineTo(x,y);}); ctx.stroke();}
+}
+function drawBarChart(canvasId, rows) {
+  const c=document.getElementById(canvasId); if(!c) return; const ctx=c.getContext('2d'); const w=c.width,h=c.height; ctx.clearRect(0,0,w,h);
+  const entries=Object.entries(rows).slice(-12); const max=Math.max(...entries.map(([,v])=>Number(v)),1); const bw=Math.max(12,(w-42)/Math.max(entries.length,1)-8);
+  ctx.fillStyle='#b2a796'; ctx.font='11px system-ui'; ctx.fillText(String(max),6,18); ctx.strokeStyle='rgba(255,234,205,.14)'; for(let i=0;i<4;i++){let y=20+i*(h-42)/3;ctx.beginPath();ctx.moveTo(34,y);ctx.lineTo(w-8,y);ctx.stroke();}
+  entries.forEach(([k,v],i)=>{const x=38+i*((w-46)/Math.max(entries.length,1)); const bh=Number(v)/max*(h-52); ctx.fillStyle=k.includes('error')?'#ff7a7a':(k.includes('buy')?'#52d19c':'#e79d54'); ctx.fillRect(x,h-22-bh,bw,bh); ctx.save(); ctx.translate(x,h-5); ctx.rotate(-0.45); ctx.fillStyle='#b2a796'; ctx.fillText(k.slice(0,12),0,0); ctx.restore();});
+}
+function updateStatsCharts(msg){
+  const positions = msg.positions || []; const cash=Number(msg.cash_balance||0); const positionsValue=positions.reduce((s,p)=>s+Number(p.current_value||0),0);
+  marketSeries.push({monitored:Number(msg.monitored_markets||0),eligible:Number(msg.eligible_markets||0),range:Number(msg.in_range_markets||0)}); while(marketSeries.length>80) marketSeries.shift();
+  portfolioSeries.push({cash,positions:positionsValue,total:cash+positionsValue}); while(portfolioSeries.length>80) portfolioSeries.shift();
+  drawLineChart('market-chart',[{color:'#e79d54',data:marketSeries.map(p=>p.monitored)},{color:'#52d19c',data:marketSeries.map(p=>p.eligible)},{color:'#ffbf69',data:marketSeries.map(p=>p.range)}]);
+  drawLineChart('portfolio-chart',[{color:'#52d19c',data:portfolioSeries.map(p=>p.cash)},{color:'#7cc7ff',data:portfolioSeries.map(p=>p.positions)},{color:'#e79d54',data:portfolioSeries.map(p=>p.total)}],{digits:2});
+}
+
+function shortText(value, fallback = "--") {
+  const text = String(value || "").trim();
+  return text ? text : fallback;
+}
+
+function esc(value) {
+  return String(value ?? "").replace(/[&<>"']/g, c => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  }[c]));
+}
+
+function drawPlatformChart(platform) {
+  const canvas = document.getElementById("platform-chart");
+  if (!canvas || !platform) return;
+  const ctx = canvas.getContext("2d");
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  const bots = Array.isArray(platform.bots) ? platform.bots : [];
+  if (!bots.length) return;
+  const values = bots.flatMap(bot => [Number(bot.paper_signal_count || 0), Number(bot.live_signal_count || 0), Math.abs(Number(bot.pnl_usd || 0))]);
+  const max = Math.max(...values, 1);
+  ctx.strokeStyle = "rgba(255,234,205,.14)";
+  ctx.fillStyle = "#b2a796";
+  ctx.font = "11px system-ui";
+  for (let i = 0; i < 4; i++) {
+    const y = 18 + i * (h - 48) / 3;
+    ctx.beginPath(); ctx.moveTo(36, y); ctx.lineTo(w - 10, y); ctx.stroke();
+  }
+  const groupW = (w - 58) / bots.length;
+  bots.forEach((bot, i) => {
+    const baseX = 42 + i * groupW;
+    const rows = [
+      [Number(bot.paper_signal_count || 0), "#52d19c"],
+      [Number(bot.live_signal_count || 0), "#ff7a7a"],
+      [Math.abs(Number(bot.pnl_usd || 0)), "#e79d54"],
+    ];
+    rows.forEach(([value, color], j) => {
+      const bh = Number(value) / max * (h - 58);
+      ctx.fillStyle = color;
+      ctx.fillRect(baseX + j * 18, h - 30 - bh, 14, bh);
+    });
+    ctx.fillStyle = "#b2a796";
+    ctx.fillText(String(bot.name || bot.id).split(" ")[0].slice(0, 12), baseX, h - 9);
+  });
+}
+
+function renderPlatform(platform) {
+  const host = document.getElementById("platform-bots");
+  if (!host || !platform) return;
+  drawPlatformChart(platform);
+  const bots = Array.isArray(platform.bots) ? platform.bots : [];
+  const note = document.getElementById("platform-note");
+  if (note) {
+    note.textContent = `${platform.paper_count ?? bots.length} paper / ${platform.live_enabled_count ?? 0} live / ${platform.error_count ?? 0} errors`;
+  }
+  if (!bots.length) {
+    host.innerHTML = '<div class="empty">Waiting for platform status</div>';
+    return;
+  }
+  host.innerHTML = bots.map(bot => {
+    const modeClass = bot.live_send_enabled ? "live" : "paper";
+    const pnl = bot.pnl_usd == null ? "--" : fmtUsd(bot.pnl_usd);
+    const roi = bot.roi_pct == null ? "--" : fmtPct(bot.roi_pct);
+    const error = bot.last_error ? `<div class="bot-error">Error: ${esc(bot.last_error)}</div>` : "";
+    return `<article class="bot-card" data-bot-id="${esc(bot.id)}">
+      <div class="bot-title">
+        <div><div class="bot-name">${esc(bot.name)}</div><div class="bot-family">${esc(bot.family)} · ${esc(bot.status)}</div></div>
+        <span class="pill ${modeClass}">${esc(bot.mode_label || bot.mode || "paper")}</span>
+      </div>
+      <div class="bot-kpis">
+        <div class="bot-kpi"><span>Health</span><strong>${esc(shortText(bot.health))}</strong></div>
+        <div class="bot-kpi"><span>Paper / Live</span><strong>${Number(bot.paper_signal_count || 0)} / ${Number(bot.live_signal_count || 0)}</strong></div>
+        <div class="bot-kpi"><span>PnL</span><strong>${pnl}</strong></div>
+        <div class="bot-kpi"><span>Backtest</span><strong>${esc(shortText(bot.backtest_label, roi))}</strong></div>
+      </div>
+      ${error}
+    </article>`;
+  }).join("");
+}
+
 let sortColumn = "eta_seconds";
 let sortDirection = "asc";
 
@@ -638,6 +873,8 @@ function renderTargetControls(msg) {
 
 function renderPortfolio(msg) {
   latestPortfolio = msg;
+  renderPlatform(msg.platform);
+  updateStatsCharts(msg);
   const positions = sortPositions(msg.positions || []);
   const cashBalance = Number(msg.cash_balance || 0);
   const positionsValue = positions.reduce((sum, position) => sum + Number(position.current_value || 0), 0);
@@ -764,6 +1001,11 @@ function tradeStatus(msg) {
 }
 
 function addTrade(msg) {
+  const actionKey = String(msg.action || "unknown");
+  tradeCounts[actionKey] = (tradeCounts[actionKey] || 0) + 1;
+  drawBarChart("trade-chart", tradeCounts);
+  const chartNote = document.getElementById("trade-chart-note");
+  if (chartNote) chartNote.textContent = Object.entries(tradeCounts).map(([k,v]) => k + " " + v).join(" | ");
   if (tradesBody.querySelector(".empty")) tradesBody.innerHTML = "";
 
   const div = document.createElement("div");

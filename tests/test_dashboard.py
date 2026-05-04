@@ -89,6 +89,50 @@ def test_dashboard_portfolio_message_clearly_reports_live_runtime(monkeypatch):
     }
 
 
+def test_dashboard_portfolio_message_includes_four_bot_platform(monkeypatch):
+    monkeypatch.setenv("BOT_MODE", "paper")
+    monkeypatch.setenv("LIVE_TRADING_ENABLED", "false")
+    monkeypatch.setenv("DRY_RUN", "true")
+    monkeypatch.setenv("WHALE_COPY_PAPER_SIGNALS", "7")
+    monkeypatch.setenv("WHALE_BACKTEST_BEST_ROI_PCT", "12.5")
+    monkeypatch.setenv("WHALE_BACKTEST_BEST_PNL_USD", "34.56")
+    monkeypatch.setenv("MARKET_MAKER_PAPER_QUOTES", "11")
+    monkeypatch.setenv("NORMAL_AMM_PAPER_ALLOCATIONS", "3")
+    portfolio_state = _make_portfolio_state()
+    server = DashboardServer(port=0, portfolio_state=portfolio_state)
+
+    message = server._make_portfolio_message(force=True)
+
+    platform = message["platform"]
+    assert platform["type"] == "polymarket_multi_bot_platform"
+    assert platform["bot_count"] == 4
+    assert platform["live_enabled_count"] == 0
+    bot_names = {bot["name"] for bot in platform["bots"]}
+    assert bot_names == {
+        "Nothing Ever Happens",
+        "Whale / ALT Copy",
+        "Market-making",
+        "Normal-distribution AMM Allocation",
+    }
+    whale = next(bot for bot in platform["bots"] if bot["id"] == "whale_alt_copy")
+    assert whale["mode_label"] == "PAPER / DRY-RUN"
+    assert whale["paper_signal_count"] == 7
+    assert whale["pnl_usd"] == 34.56
+    assert whale["roi_pct"] == 12.5
+    assert all("wallet" not in bot for bot in platform["bots"])
+
+
+def test_dashboard_platform_model_sanitizes_error(monkeypatch):
+    monkeypatch.setenv("MARKET_MAKER_LAST_ERROR", "x" * 250)
+    server = DashboardServer(port=0, portfolio_state=_make_portfolio_state())
+
+    message = server._make_portfolio_message(force=True)
+
+    market_maker = next(bot for bot in message["platform"]["bots"] if bot["id"] == "market_making")
+    assert market_maker["health"] == "degraded"
+    assert len(market_maker["last_error"]) == 180
+
+
 
 
 def test_dashboard_portfolio_message_includes_finalization_info():
@@ -151,6 +195,10 @@ async def test_dashboard_http_serves_html():
             assert "In Range" in text
             assert "Finalization" in text
             assert "PAPER / DRY-RUN" in text
+            assert "Unified Polymarket Platform" in text
+            assert "Whale / ALT Copy" in text
+            assert "Market-making" in text
+            assert "Normal-distribution AMM Allocation" in text
 
     await runner.cleanup()
 

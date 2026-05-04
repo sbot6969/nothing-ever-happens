@@ -32,6 +32,40 @@ def _env_bool(name: str, default: bool) -> bool:
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _env_int(name: str, default: int = 0) -> int:
+    raw = os.getenv(name)
+    if raw is None or raw.strip() == "":
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
+def _env_float(name: str, default: float | None = None) -> float | None:
+    raw = os.getenv(name)
+    if raw is None or raw.strip() == "":
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        return default
+
+
+def _bot_mode(prefix: str, *, default_live_enabled: bool = False) -> dict:
+    mode_raw = os.getenv(f"{prefix}_MODE", os.getenv("BOT_MODE", "paper")).strip().lower() or "paper"
+    live_enabled = _env_bool(f"{prefix}_LIVE_ENABLED", default_live_enabled)
+    dry_run = _env_bool(f"{prefix}_DRY_RUN", True)
+    live_send_enabled = mode_raw == "live" and live_enabled and not dry_run
+    return {
+        "mode": "live" if live_send_enabled else "paper",
+        "configured_mode": mode_raw,
+        "live_send_enabled": live_send_enabled,
+        "dry_run": dry_run,
+        "label": "LIVE SEND ENABLED" if live_send_enabled else "PAPER / DRY-RUN",
+    }
+
+
 def _runtime_status() -> dict:
     bot_mode = os.getenv("BOT_MODE", "paper").strip().lower() or "paper"
     live_trading_enabled = _env_bool("LIVE_TRADING_ENABLED", False)
@@ -45,6 +79,46 @@ def _runtime_status() -> dict:
         "live_trading_enabled": live_trading_enabled,
         "dry_run": dry_run,
         "label": "LIVE SEND ENABLED" if live_send_enabled else "PAPER / DRY-RUN",
+    }
+
+
+def _platform_bot_card(
+    *,
+    bot_id: str,
+    name: str,
+    family: str,
+    prefix: str,
+    status: str = "planned",
+    health: str | None = None,
+    paper_signal_count: int = 0,
+    live_signal_count: int = 0,
+    pnl_usd: float | None = None,
+    roi_pct: float | None = None,
+    backtest_label: str = "",
+    last_error: str = "",
+    metrics: dict | None = None,
+) -> dict:
+    mode = _bot_mode(prefix)
+    safe_error = str(last_error or "")[:180]
+    resolved_health = health or ("degraded" if safe_error else ("idle" if status == "planned" else "ok"))
+    return {
+        "id": bot_id,
+        "name": name,
+        "family": family,
+        "status": status,
+        "mode": mode["mode"],
+        "mode_label": mode["label"],
+        "configured_mode": mode["configured_mode"],
+        "live_send_enabled": mode["live_send_enabled"],
+        "dry_run": mode["dry_run"],
+        "health": resolved_health,
+        "paper_signal_count": int(paper_signal_count or 0),
+        "live_signal_count": int(live_signal_count or 0),
+        "pnl_usd": round(pnl_usd, 4) if pnl_usd is not None else None,
+        "roi_pct": round(roi_pct, 4) if roi_pct is not None else None,
+        "backtest_label": backtest_label,
+        "last_error": safe_error,
+        "metrics": metrics or {},
     }
 
 
@@ -201,9 +275,11 @@ class DashboardServer:
             else None
         )
         finalization_summary = self._make_finalization_summary(snapshot.positions)
+        platform = self._make_platform_summary(snapshot, finalization_summary)
         return {
             "type": "portfolio",
             "runtime": _runtime_status(),
+            "platform": platform,
             "updated_at_us": snapshot.updated_at_us,
             "monitored_markets": snapshot.monitored_markets,
             "eligible_markets": snapshot.eligible_markets,
@@ -250,6 +326,102 @@ class DashboardServer:
                 }
                 for position in snapshot.positions
             ],
+        }
+
+    def _make_platform_summary(self, snapshot, finalization_summary: dict) -> dict:
+        positions_value = sum(float(position.current_value or 0.0) for position in snapshot.positions)
+        open_positions = len(snapshot.positions)
+        nothing_error = snapshot.last_error or ""
+        nothing_health = "degraded" if nothing_error else "ok"
+        if finalization_summary.get("ended_positions", 0) > 0:
+            nothing_health = "needs_resolution" if not nothing_error else "degraded"
+
+        bots = [
+            _platform_bot_card(
+                bot_id="nothing_happens",
+                name="Nothing Ever Happens",
+                family="baseline_strategy",
+                prefix="NOTHING_HAPPENS",
+                status="running" if snapshot.updated_at_us else "waiting",
+                health=nothing_health,
+                paper_signal_count=int(snapshot.in_range_markets or 0),
+                live_signal_count=open_positions if _runtime_status()["live_send_enabled"] else 0,
+                pnl_usd=sum(float(position.pnl_usd or 0.0) for position in snapshot.positions),
+                roi_pct=None,
+                backtest_label=os.getenv("NOTHING_HAPPENS_BACKTEST_LABEL", "current portfolio"),
+                last_error=nothing_error,
+                metrics={
+                    "monitored_markets": int(snapshot.monitored_markets or 0),
+                    "eligible_markets": int(snapshot.eligible_markets or 0),
+                    "in_range_markets": int(snapshot.in_range_markets or 0),
+                    "open_positions": open_positions,
+                    "cash_balance": round(float(snapshot.cash_balance or 0.0), 4),
+                    "positions_value": round(positions_value, 4),
+                    "finalization": finalization_summary,
+                },
+            ),
+            _platform_bot_card(
+                bot_id="whale_alt_copy",
+                name="Whale / ALT Copy",
+                family="copy_trading",
+                prefix="WHALE_COPY",
+                status=os.getenv("WHALE_COPY_STATUS", "paper_ready"),
+                paper_signal_count=_env_int("WHALE_COPY_PAPER_SIGNALS", _env_int("WHALE_SIGNALS_SEEN", 0)),
+                live_signal_count=_env_int("WHALE_COPY_LIVE_SIGNALS", 0),
+                pnl_usd=_env_float("WHALE_BACKTEST_BEST_PNL_USD"),
+                roi_pct=_env_float("WHALE_BACKTEST_BEST_ROI_PCT"),
+                backtest_label=os.getenv("WHALE_BACKTEST_BEST_STRATEGY", "awaiting larger backtest"),
+                last_error=os.getenv("WHALE_COPY_LAST_ERROR", ""),
+                metrics={
+                    "min_notional_usd": _env_float("WHALE_MIN_NOTIONAL_USD"),
+                    "relative_market_size_threshold_pct": 30.0,
+                    "expected_slippage_bps": _env_float("WHALE_EXPECTED_SLIPPAGE_BPS"),
+                },
+            ),
+            _platform_bot_card(
+                bot_id="market_making",
+                name="Market-making",
+                family="inventory_aware_quoting",
+                prefix="MARKET_MAKER",
+                status=os.getenv("MARKET_MAKER_STATUS", "planned_paper"),
+                paper_signal_count=_env_int("MARKET_MAKER_PAPER_QUOTES", 0),
+                live_signal_count=_env_int("MARKET_MAKER_LIVE_QUOTES", 0),
+                pnl_usd=_env_float("MARKET_MAKER_BACKTEST_PNL_USD"),
+                roi_pct=_env_float("MARKET_MAKER_BACKTEST_ROI_PCT"),
+                backtest_label=os.getenv("MARKET_MAKER_BACKTEST_LABEL", "paper quote model pending"),
+                last_error=os.getenv("MARKET_MAKER_LAST_ERROR", ""),
+                metrics={
+                    "quote_count": _env_int("MARKET_MAKER_PAPER_QUOTES", 0),
+                    "inventory_cap_usd": _env_float("MARKET_MAKER_INVENTORY_CAP_USD"),
+                    "spread_bps": _env_float("MARKET_MAKER_SPREAD_BPS"),
+                },
+            ),
+            _platform_bot_card(
+                bot_id="normal_amm_allocation",
+                name="Normal-distribution AMM Allocation",
+                family="portfolio_allocator",
+                prefix="NORMAL_AMM",
+                status=os.getenv("NORMAL_AMM_STATUS", "planned_paper"),
+                paper_signal_count=_env_int("NORMAL_AMM_PAPER_ALLOCATIONS", 0),
+                live_signal_count=_env_int("NORMAL_AMM_LIVE_ALLOCATIONS", 0),
+                pnl_usd=_env_float("NORMAL_AMM_BACKTEST_PNL_USD"),
+                roi_pct=_env_float("NORMAL_AMM_BACKTEST_ROI_PCT"),
+                backtest_label=os.getenv("NORMAL_AMM_BACKTEST_LABEL", "allocation simulator pending"),
+                last_error=os.getenv("NORMAL_AMM_LAST_ERROR", ""),
+                metrics={
+                    "paper_allocations": _env_int("NORMAL_AMM_PAPER_ALLOCATIONS", 0),
+                    "capital_cap_usd": _env_float("NORMAL_AMM_CAPITAL_CAP_USD"),
+                    "distribution_sigma": _env_float("NORMAL_AMM_SIGMA"),
+                },
+            ),
+        ]
+        return {
+            "type": "polymarket_multi_bot_platform",
+            "bot_count": len(bots),
+            "live_enabled_count": sum(1 for bot in bots if bot["live_send_enabled"]),
+            "paper_count": sum(1 for bot in bots if not bot["live_send_enabled"]),
+            "error_count": sum(1 for bot in bots if bot["last_error"]),
+            "bots": bots,
         }
 
     def _finalization_status(self, position) -> str:
