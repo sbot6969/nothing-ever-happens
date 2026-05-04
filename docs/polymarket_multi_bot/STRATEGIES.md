@@ -276,6 +276,48 @@ Minimum acceptable report before claiming improvement:
 - Max drawdown and worst market loss.
 - List of skipped reasons to expose data/strategy brittleness.
 
+
+## Research-agent additions
+
+These additions translate `RESEARCH_APPENDIX.md` into implementation ideas for the four-bot platform. They remain paper-mode only.
+
+### Shared platform additions
+
+- [ ] Add `CanonicalBinaryExposure` utilities so YES/NO positions, Polymarket negative-risk outcomes, and Kalshi-style binary complementarity are represented in one YES-equivalent basis.
+- [ ] Add `OrderLifecycleEvent` records for planned quote, paper placement, would-fill, would-cancel, stale-cancel, live-gate rejection, and skipped states.
+- [ ] Add `BacktestProvenance` to every report: data window, market categories, fill model, latency assumption, fee source, trial count, in/out-of-sample split, and sample-size warning.
+- [ ] Add rate-limit-aware quote refresh simulation using Polymarket documented endpoint limits; report missed refreshes and throttled/skipped updates.
+- [ ] Keep live order/signing modules behind explicit typed approval gates; strategy engines should emit plans/signals only.
+
+### Market-maker additions
+
+- [ ] Implement inventory-risk controls from Guéant/Lehalle/Fernandez-Tapia: reservation-price skew, side shutoff, and risk-aversion sensitivity reports.
+- [ ] Separate maker quote logic from taker/copy logic. Maker plans should be `maker_only` and never cross the spread unless a separately gated taker strategy fires.
+- [ ] Add `ToxicFlowState` from Glosten-Milgrom/Kyle-style adverse-selection logic: large trade score, market-relative trade size, midpoint jump, repeated one-sided fills, and final-window risk.
+- [ ] Pause or widen quotes after whale trades, rapid midpoint jumps, or repeated one-sided fills; measure adverse selection by marking fills to next midpoint and final resolution.
+- [ ] Add layered quotes inspired by Uniswap v3 concentrated liquidity/range orders: small size near fair value, additional layers only inside safe bands and inventory caps.
+
+### Whale/ALT copy additions
+
+- [ ] Split signal scoring into `informed_trade_score` and `copy_executability_score`; a whale can be informative but no longer safely copyable after price impact.
+- [ ] Add Kyle-style price-impact features: pre/post midpoint move, depth consumed, remaining depth, signal age, and category/trader reliability.
+- [ ] Reject copy trades when expected edge is gone after fees, slippage, spread blowout, and latency.
+- [ ] Report signal count and confidence intervals by trader cohort/category; do not rank variants by raw ROI without trial-count and sample-size warnings.
+
+### Normal/AMM allocator additions
+
+- [ ] Use adaptive LMSR liquidity parameter `b` rather than one global value; derive it from bankroll, market depth, volume, confidence, time-to-resolution, and event cap.
+- [ ] Add fractional-Kelly sizing as an upper bound, then haircut by model confidence, liquidity, event exposure, drawdown, and turnover caps.
+- [ ] Implement a generic `CostFunctionAllocator` interface with `target_exposure()` and `marginal_price()` so LMSR, quadratic, and normal/z-score allocation can be compared.
+- [ ] Record `model_price`, executable bid/ask, `oracle_gap_bps`, fee/slippage buffer, and final accepted target exposure.
+- [ ] Default negative-risk placeholders/Other outcomes to excluded until explicit support and tests exist.
+
+### Validation additions
+
+- [ ] Add latency stress tests and queue haircuts to maker/whale simulations.
+- [ ] Add walk-forward validation, bootstrap confidence intervals, and overfit/trial-count notes to reports.
+- [ ] Add dashboard warnings for exploratory results, small samples, paper mode, and live-blocked state.
+
 ## Implementation TODO rollup
 
 ### Phase 1 — paper-safe architecture
