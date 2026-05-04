@@ -10,7 +10,7 @@
 - [x] Run focused tests/checks.
 - [x] Write `docs/polymarket_multi_bot/SECURITY_REVIEW.md` with severity findings and approval/blockers.
 - [x] Commit safe review doc changes if appropriate.
-- [ ] Send exactly one Telegram completion/blocked message.
+- [x] Send exactly one Telegram completion/blocked message.
 
 ## Review notes
 _TBD._
@@ -92,4 +92,4 @@ _TBD._
 - [blocked] Keep live financial actions blocked unless separate typed confirmation + fresh security review is provided.
 - [x] Strengthen 30-minute monitor so every tick reviews detailed voice task list, open TODOs, and actual specialist/subagent states.
 - [x] Continue implementation from highest-priority safe list: provenance/market_size_source, NEH adapter, larger/OOS reports, source audit, tests, commits/pushes.
-- [ ] Send progress pings every 30 minutes and final completion/blocked summary only when all safe tasks are complete.
+- [x] Send progress pings every 30 minutes and final completion/blocked summary only when all safe tasks are complete.

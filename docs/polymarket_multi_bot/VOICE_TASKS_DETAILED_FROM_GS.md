@@ -178,7 +178,7 @@ The user explicitly wanted one large platform split into four sub-bots/strategy 
 - [x] Monitor checks subagent/agent registry status.
 - [x] Monitor checks dashboards/processes/git state.
 - [x] Monitor appends logs/status to local task/memory docs.
-- [ ] Confirm one full scheduled monitor tick delivers the expected Telegram summary end-to-end.
+- [x] Confirm one full scheduled monitor tick delivers the expected Telegram summary end-to-end.
 
 ## Q. Financial/live actions requested but blocked
 
