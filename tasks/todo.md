@@ -67,5 +67,5 @@ _TBD._
 - [x] Add tests rejecting live-send config without typed confirmation.
 - [x] Document schema in `docs/polymarket_multi_bot/CONFIG_SCHEMA.md`.
 - [x] Run full pytest: `208 passed, 1 warning`.
-- [ ] Commit/push config allocator changes.
+- [x] Commit/push config allocator changes: `paper-first multi-bot platform config`.
 - [blocked] Wallet creation/funding remains blocked.
