@@ -1,12 +1,12 @@
 # Latest security review — paper multi-bot changes
 
-Date: 2026-05-04 18:55 Europe/Paris
+Date: 2026-05-04 18:41 Europe/Paris
 Branch: `feature/whale-copy-backtest-research`
-Scope: commits after the earlier security review, including walk-forward validation, paper market-making lifecycle simulation, probability/calibration helpers, large public snapshot reports, source audit/config docs, and monitor/TODO updates.
+Scope: latest safe paper-only multi-bot changes, focused on `bot/backtest/validation_report.py`, `bot/backtest/market_making_lifecycle.py`, `bot/backtest/probability_model.py`, large snapshot result docs, monitor/task docs, and related tests.
 
 ## Verdict
 
-Approved for **paper/offline research and dashboard monitoring only**.
+Approved for **paper/offline research and dashboard/monitoring only**.
 
 Not approved for live trading, wallet creation, position closing, funding, withdrawals, transfers, or maker/liquidity deployment. Those remain blocked until a separate typed confirmation with exact scope/amounts plus a fresh live-mode security review.
 
@@ -14,21 +14,25 @@ Not approved for live trading, wallet creation, position closing, funding, withd
 
 | Severity | Finding | Evidence | Action |
 |---|---|---|---|
-| Critical | None in tracked latest changes. | No new wallet/funding/order-send paths were added by latest paper modules. | Continue paper-only work. |
-| High | None in tracked latest changes. | Focused tracked secret scan found only placeholders: `.env.example:PRIVATE_KEY=`, `README.md:PRIVATE_KEY=<key>`, and existing review text. | No secret exposure in tracked latest changes. |
-| Medium | Market-making and AMM/probability results still use proxies and not historical L2/queue replay. | Reports and code label this explicitly; `market_making_lifecycle.py` is deterministic simulation only and has no network/client usage. | Do not claim production edge; require L2/order lifecycle data before live consideration. |
-| Low | Attempted delegated security-reviewer command timed out/killed before producing final report. | Local untracked `tasks/security_review_latest_todo.md` was created but no committed reviewer output. | Main completed this review directly and committed it; future long reviewer agents should run detached with sufficient timeout. |
+| Critical | None in tracked latest changes. | No new wallet, funding, order-send, cancellation, transfer, or position-close path was added by the reviewed paper modules/docs. | Continue paper-only work. |
+| High | None in tracked latest changes. | Tracked secret scan found no PEM blocks or private-key/token values; hits are code variable names, placeholders, tests, and safety docs. | No tracked secret exposure found. |
+| Medium | Market-making/AMM/probability results remain proxy evidence, not production edge. | `market_making_lifecycle.py` is deterministic/no-network; large reports label maker/AMM as skeleton/proxy and require L2/order-book replay. | Do not market as live edge; require order-book/queue replay before live consideration. |
+| Low | Local ignored runtime artifacts still contain sensitive/live-looking operational data. | Ignored `.env`, `certs/dashboard.key`, `trades.jsonl`, DB/log/artifact paths are present locally but not tracked. | Keep ignored; do not commit. Review/remove before sharing repo bundles. |
+| Low | Monitor sends operational summaries externally by default. | `scripts/multibot_monitor.sh` uses `openclaw message send` to Telegram target `707939820` by default, with a system-event fallback. It does not perform finance actions. | Acceptable for monitoring if this Telegram route is intended; keep summaries sanitized. |
 
 ## Checks run
 
-- Repo state / recent commits inspected on `feature/whale-copy-backtest-research`.
-- Live-finance grep reviewed for `live_send_enabled`, `BOT_MODE`, `LIVE_TRADING_ENABLED`, `DRY_RUN`, `PRIVATE_KEY`, `FUNDER_ADDRESS`, transfer/funding/close-position language.
-- Focused tracked secret scan:
-  - pattern: private keys, Telegram bot tokens, long hex private-key-like strings, PEM blocks
-  - result: placeholders only; no real tracked token/key found.
-- Paper/live labeling reviewed in generated reports and docs.
-- Monitor launchd status checked: `com.sbot.neh-multibot-monitor` has `run interval = 1800 seconds`, last exit code `0`, and sends via OpenClaw message path with fallback.
-- Tests after latest code changes: `217 passed, 1 warning`.
+- Inspected recent commits and current branch state.
+- Reviewed `validation_report.py`, `market_making_lifecycle.py`, `probability_model.py`, `data_downloader.py`, multi-strategy report code, platform config, monitor script, large snapshot docs, source audit, MASTER_TODO, and focused tests.
+- Live-finance grep reviewed for order submission/cancellation, transfers, funding, wallet creation, position closing, `live_send_enabled`, `LIVE_TRADING_ENABLED`, `DRY_RUN`, and private-key usage.
+- Tracked secret scans:
+  - private-key/secret/API-token/long-hex/PEM patterns: no real tracked secret found.
+  - PEM scan: no tracked PEM private key found.
+- Artifact hygiene checked:
+  - `docs/polymarket_multi_bot/BACKTEST_RESULTS_LARGE.md` and `VALIDATION_RESULTS_LARGE.md` are small tracked markdown summaries only.
+  - generated `artifacts/`, `.env`, certs, logs, DBs, and JSONL runtime files remain ignored/untracked.
+- Focused tests: `27 passed`.
+- Full test suite: `218 passed, 1 warning`.
 
 ## Live-launch blockers that remain
 
