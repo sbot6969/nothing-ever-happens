@@ -95,6 +95,15 @@ Allocator behavior:
 }
 ```
 
+## Capital/wallet allocation interface
+
+The repo now defines a production-shaped **paper allocation** interface only:
+
+- One `PlatformConfig` owns the total paper bankroll and per-bot weights.
+- Each bot gets a paper notional allocation and per-market/per-event caps.
+- Live wallet creation/funding is intentionally **not** implemented here. If a future live rollout is approved, the wallet layer must be a separate reviewed component that maps bot ids to pre-approved wallet addresses, exact funding amounts, and revocation/withdrawal runbooks.
+- `live_send_enabled=true` still raises during config validation, so changing config alone cannot move money or send live orders.
+
 ## Remaining integration work
 
 - Wire the config into runtime startup only after strategy adapters emit common `StrategySignal` objects.

@@ -16,7 +16,7 @@ Scope: all available project-relevant voice transcripts re-read from the local c
 
 - [x] Verify that voice messages are heard/transcribed.
 - [x] If user asks “do you hear me”, answer with the requested phrase/test acknowledgement.
-- [ ] Support assistant voice replies only when the user explicitly asks “answer by voice / voice message”; do not automatically respond by voice to every voice note.
+- [x] Support assistant voice replies only when the user explicitly asks “answer by voice / voice message”; do not automatically respond by voice to every voice note.
 
 ## B. Status-report tasks for the whale-copy bot
 
@@ -75,7 +75,7 @@ Scope: all available project-relevant voice transcripts re-read from the local c
 - [x] Convert research findings into implementable strategy TODOs.
 - [x] Add a source audit table with URL, fetch status, primary/secondary classification, and covered strategy area.
 - [x] Replace any stale/broken citations.
-- [ ] Add more primary Polymarket docs for historical data provenance, cancellations, websocket/order lifecycle, rewards, and market metadata.
+- [x] Add more primary Polymarket docs for historical data provenance, cancellations, websocket/order lifecycle, rewards, and market metadata.
 
 ## G. Whale filter update from voice
 
@@ -98,7 +98,7 @@ The user explicitly wanted one large platform split into four sub-bots/strategy 
 - [x] Build shared strategy abstractions/report shapes.
 - [x] Keep all new strategy families paper/dry-run by default.
 - [x] Implement real executable adapter for the existing Nothing Ever Happens baseline.
-- [ ] Define final production per-bot config schema and capital/wallet allocation interfaces.
+- [x] Define final production per-bot config schema and capital/wallet allocation interfaces.
 
 ## I. Market-making bot requirements
 
