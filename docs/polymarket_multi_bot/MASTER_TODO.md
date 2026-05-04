@@ -15,7 +15,7 @@
 - [x] Update whale filter: whale if notional >= $10k OR notional >= 30% of market size when market size >= $10k.
 - [x] Add unit tests for both whale criteria and edge cases.
 - [x] Update scanner validation/backtest code to include market-size-relative signals.
-- [ ] Re-run whale-copy backtests on larger public historical snapshots.
+- [x] Re-run whale-copy backtests on larger public historical snapshots.
 
 ## 3. Research
 - [x] Research hedge-fund / quant / market-making PDFs and technical docs.
@@ -54,7 +54,7 @@
 - [x] Commit and push to GitHub fork branch.
 - [x] Restart paper runtimes only after tests pass.
 - [x] Verify dashboards respond: main HTTPS 8765=200, whale HTTPS 8766=200.
-- [ ] Report status and blockers to user.
+- [x] Report status and blockers to user.
 
 ## 9. Recurring monitoring
 - [x] Install 30-minute recurring safe monitor/check job via launchd (`com.sbot.neh-multibot-monitor`).

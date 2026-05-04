@@ -47,7 +47,7 @@ Scope: all available project-relevant voice transcripts re-read from the local c
 - [x] Report after iterative research/improvement attempts what the best result was.
 - [x] Avoid claiming an edge from tiny sample size.
 - [x] Add comparable multi-strategy backtest report fields: PnL, ROI, drawdown, hit rate, turnover, exposure, skipped reasons.
-- [ ] Expand beyond the current small/medium snapshot into larger public historical snapshots.
+- [x] Expand beyond the current small/medium snapshot into larger public historical snapshots.
 - [x] Add out-of-sample/walk-forward backtests, not only in-sample tuning.
 - [x] Add latency and cost stress grids.
 - [x] Add category/time/liquidity cohort splits.
