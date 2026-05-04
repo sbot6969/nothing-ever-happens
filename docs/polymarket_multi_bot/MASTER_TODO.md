@@ -18,17 +18,17 @@
 - [ ] Re-run whale-copy backtests on larger public historical snapshots.
 
 ## 3. Research
-- [ ] Research hedge-fund / quant / market-making PDFs and technical docs.
-- [ ] Research prediction-market and binary-option market-making techniques.
-- [ ] Research Polymarket/CLOB liquidity constraints and practical execution risks.
-- [ ] Write source-backed findings to `docs/polymarket_multi_bot/RESEARCH.md`.
-- [ ] Convert research into implementable strategy specs in `docs/polymarket_multi_bot/STRATEGIES.md`.
+- [x] Research hedge-fund / quant / market-making PDFs and technical docs.
+- [x] Research prediction-market and binary-option market-making techniques.
+- [x] Research Polymarket/CLOB liquidity constraints and practical execution risks.
+- [x] Write source-backed findings to `docs/polymarket_multi_bot/RESEARCH.md`.
+- [x] Convert research into implementable strategy specs in `docs/polymarket_multi_bot/STRATEGIES.md`.
 
 ## 4. Strategy families
 - [ ] Existing Nothing Ever Happens strategy: document baseline and backtest metrics.
 - [ ] Whale/ALT copy bot: improve whale filter, validation, paper runtime.
-- [ ] Market-making bot: design paper quote generator with inventory/spread/risk controls.
-- [ ] Normal-distribution AMM allocation bot: design capital allocation/sizing model and paper simulator.
+- [x] Market-making bot: design paper quote generator with inventory/spread/risk controls.
+- [x] Normal-distribution AMM allocation bot: design capital allocation/sizing model and paper simulator.
 
 ## 5. Backtesting
 - [x] Build common backtest harness for all strategy families.
@@ -38,19 +38,19 @@
 - [ ] Record results in `docs/polymarket_multi_bot/BACKTEST_RESULTS.md`.
 
 ## 6. Unified dashboard
-- [ ] Add platform dashboard section/cards for all four sub-bots.
-- [ ] Show per-bot mode, capital allocation, paper/live signal counts, PnL/backtest metrics, health/errors.
-- [ ] Keep sensitive wallet/key data out of dashboard and logs.
+- [x] Add platform dashboard section/cards for all four sub-bots.
+- [x] Show per-bot mode, capital allocation, paper/live signal counts, PnL/backtest metrics, health/errors.
+- [x] Keep sensitive wallet/key data out of dashboard and logs.
 
 ## 7. Agent work and reviews
 - [x] Backend agent: strategy interfaces, whale filter, backtest harness, tests.
 - [ ] Research agent: source-backed research docs and strategy ideas.
-- [ ] Frontend agent: unified dashboard design and implementation.
+- [x] Frontend agent: unified dashboard design and implementation.
 - [ ] Security reviewer: final review of code, configs, logging, live gates, secret handling.
 - [ ] Cross-test/adversarial review: one agent validates assumptions/test gaps from another.
 
 ## 8. Release/push/runtime
-- [ ] Run focused and full tests.
+- [x] Run focused and full tests.
 - [ ] Commit and push to GitHub fork branch.
 - [ ] Restart paper runtimes only after tests pass.
 - [ ] Verify dashboards respond.
