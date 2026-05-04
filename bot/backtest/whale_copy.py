@@ -14,10 +14,12 @@ import json
 from pathlib import Path
 from typing import Any, Iterable
 
+from bot.whale_thresholds import ABSOLUTE_WHALE_NOTIONAL_USD, classify_whale_trade, market_size_usd
+
 
 @dataclass(frozen=True)
 class WhaleBacktestConfig:
-    min_whale_notional_usd: float = 250.0
+    min_whale_notional_usd: float = ABSOLUTE_WHALE_NOTIONAL_USD
     copy_fraction: float = 0.10
     max_copy_notional_usd: float = 25.0
     max_history_count: int = 1
@@ -71,6 +73,7 @@ class WhaleTrade:
     tx: str = ""
     history_count: int = 1
     liquidity_usd: float | None = None
+    market_size_usd: float | None = None
 
     @property
     def notional(self) -> float:
@@ -254,6 +257,7 @@ def parse_trade_row(row: dict[str, Any]) -> WhaleTrade:
     history_count = _as_int(row.get("history_count", row.get("historyCount", 1)), "history_count")
     liquidity_raw = row.get("liquidity_usd", row.get("liquidityUsd"))
     liquidity_usd = None if liquidity_raw is None else _as_float(liquidity_raw, "liquidity_usd")
+    parsed_market_size_usd = market_size_usd(row)
 
     return WhaleTrade(
         wallet=wallet,
@@ -268,6 +272,7 @@ def parse_trade_row(row: dict[str, Any]) -> WhaleTrade:
         tx=str(row.get("transactionHash") or ""),
         history_count=history_count,
         liquidity_usd=liquidity_usd,
+        market_size_usd=parsed_market_size_usd,
     )
 
 
@@ -284,7 +289,14 @@ def is_first_visible_whale(trade: WhaleTrade, config: WhaleBacktestConfig) -> bo
 def _rejection_reason(trade: WhaleTrade, config: WhaleBacktestConfig, now_ts: int | None) -> str | None:
     if trade.side != "BUY":
         return "non_buy_trade"
-    if trade.notional < config.min_whale_notional_usd:
+    classification = classify_whale_trade(
+        {
+            "notional_usd": trade.notional,
+            "market_size_usd": trade.market_size_usd,
+        },
+        absolute_notional_usd=config.min_whale_notional_usd,
+    )
+    if not classification.is_whale:
         return "below_min_notional"
     if not is_first_visible_whale(trade, config):
         return "prior_wallet_history"

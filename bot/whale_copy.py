@@ -26,6 +26,7 @@ from dotenv import load_dotenv
 
 from bot.logging_config import configure_logging
 from bot.trade_ledger import record_order
+from bot.whale_thresholds import ABSOLUTE_WHALE_NOTIONAL_USD, classify_whale_trade, trade_notional_usd
 
 logger = logging.getLogger(__name__)
 DATA_API = "https://data-api.polymarket.com/trades"
@@ -138,7 +139,7 @@ class WhaleCopyState:
 
 
 def min_notional_usd() -> float:
-    return float(os.getenv("WHALE_MIN_NOTIONAL_USD", "250"))
+    return float(os.getenv("WHALE_MIN_NOTIONAL_USD", str(ABSOLUTE_WHALE_NOTIONAL_USD)))
 
 
 def copy_fraction() -> float:
@@ -183,19 +184,61 @@ def _optional_int_env(name: str) -> int | None:
 
 
 def backtest_metrics() -> dict[str, Any]:
-    """Operator-supplied latest backtest summary for dashboard display.
+    """Latest whale-copy backtest summary for dashboard display.
 
-    The whale-copy runtime is intentionally not doing live accounting here; these
-    fields let generated backtest reports surface in the dashboard without
-    touching transaction code.
+    This is read-only reporting. It never touches transaction code or wallet
+    paths. It prefers the generated iteration report and falls back to env vars
+    used by the launch script.
     """
-    return {
+    metrics: dict[str, Any] = {
         "iterations_completed": _optional_int_env("WHALE_BACKTEST_ITERATIONS") or 0,
         "best_roi_pct": _optional_float_env("WHALE_BACKTEST_BEST_ROI_PCT"),
         "best_pnl_usd": _optional_float_env("WHALE_BACKTEST_BEST_PNL_USD"),
         "best_strategy": os.getenv("WHALE_BACKTEST_BEST_STRATEGY", ""),
         "report_path": os.getenv("WHALE_BACKTEST_REPORT", ""),
+        "iterations": [],
+        "feasibility_notes": [],
     }
+    candidates = [os.getenv("WHALE_BACKTEST_ITERATION_REPORT", "")]
+    for raw_path in candidates:
+        if not raw_path:
+            continue
+        path = Path(raw_path)
+        if not path.is_absolute():
+            path = Path.cwd() / path
+        try:
+            report = json.loads(path.read_text())
+        except Exception:
+            continue
+        iterations = report.get("iterations") if isinstance(report, dict) else None
+        if not isinstance(iterations, list):
+            continue
+        metrics.update(
+            {
+                "iterations_completed": len(iterations),
+                "best_roi_pct": report.get("best_roi_pct", metrics["best_roi_pct"]),
+                "best_pnl_usd": report.get("best_pnl_usd", metrics["best_pnl_usd"]),
+                "best_strategy": report.get("best_name", metrics["best_strategy"]),
+                "best_iteration": report.get("best_iteration"),
+                "feasibility_notes": report.get("feasibility_notes", []),
+                "iterations": [
+                    {
+                        "iteration": item.get("iteration"),
+                        "name": item.get("name", ""),
+                        "roi_pct": item.get("roi_pct"),
+                        "total_pnl_usd": item.get("total_pnl_usd"),
+                        "copied": item.get("copied"),
+                        "hit_rate_pct": item.get("hit_rate_pct"),
+                        "max_drawdown_usd": item.get("max_drawdown_usd"),
+                        "total_copy_notional_usd": item.get("total_copy_notional_usd"),
+                    }
+                    for item in iterations
+                    if isinstance(item, dict)
+                ],
+            }
+        )
+        break
+    return metrics
 
 
 def _signal_quality(signals: list[WhaleSignal]) -> dict[str, Any]:
@@ -243,7 +286,7 @@ def _trade_key(trade: dict[str, Any]) -> str:
 
 
 def _notional(trade: dict[str, Any]) -> float:
-    return float(trade.get("size") or 0.0) * float(trade.get("price") or 0.0)
+    return trade_notional_usd(trade)
 
 
 async def _fetch_json(session: aiohttp.ClientSession, url: str) -> list[dict[str, Any]]:
@@ -292,7 +335,7 @@ async def _handle_signal(trade: dict[str, Any], history_count: int, state: Whale
         history_count=history_count,
         confidence=_confidence(trade, history_count),
         action="live" if is_live else "paper",
-        reason="first_visible_trade_large_buy" if history_count <= 1 else "large_trade",
+        reason=classify_whale_trade(trade, absolute_notional_usd=min_notional_usd()).reason if history_count <= 1 else "large_trade",
         planned_copy_notional=round(copy_notional, 4),
         expected_slippage_bps=expected_slippage_bps(),
     )
@@ -349,8 +392,8 @@ async def poll_whales(state: WhaleCopyState, shutdown: asyncio.Event) -> None:
                     state.seen_txs.add(key)
                     if str(trade.get("side") or "").upper() != "BUY":
                         continue
-                    notional = _notional(trade)
-                    if notional < min_notional_usd():
+                    classification = classify_whale_trade(trade, absolute_notional_usd=min_notional_usd())
+                    if not classification.is_whale:
                         continue
                     wallet = str(trade.get("proxyWallet") or "")
                     if not wallet:
@@ -378,7 +421,7 @@ HTML = r'''<!doctype html>
 body{margin:0;background:#0d1117;color:#e6edf3;font-family:system-ui,-apple-system,sans-serif}
 .shell{max-width:1440px;margin:auto;padding:24px}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
 .card,.panel{background:#161b22;border:1px solid #30363d;border-radius:16px;padding:14px}.label{color:#8b949e;text-transform:uppercase;font-size:12px;letter-spacing:.08em}.value{font-size:24px;font-weight:800;margin-top:6px}.meta{color:#8b949e;font-size:13px;margin-top:6px}.panel{margin-top:16px}
-table{width:100%;border-collapse:collapse}th,td{border-bottom:1px solid #30363d;padding:10px;text-align:left;vertical-align:top;font-size:14px}th{color:#8b949e;text-transform:uppercase;font-size:12px}.mono{font-family:ui-monospace,monospace}.good{color:#3fb950}.bad{color:#f85149}.warn{color:#d29922}a{color:#58a6ff}.pill{display:inline-block;border:1px solid #30363d;border-radius:999px;padding:3px 8px;background:#21262d}.title{display:flex;justify-content:space-between;gap:12px;align-items:center}.subgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:16px}@media(max-width:900px){.grid,.subgrid{grid-template-columns:1fr}}
+table{width:100%;border-collapse:collapse}th,td{border-bottom:1px solid #30363d;padding:10px;text-align:left;vertical-align:top;font-size:14px}th{color:#8b949e;text-transform:uppercase;font-size:12px}.mono{font-family:ui-monospace,monospace}.good{color:#3fb950}.bad{color:#f85149}.warn{color:#d29922}a{color:#58a6ff}.pill{display:inline-block;border:1px solid #30363d;border-radius:999px;padding:3px 8px;background:#21262d}.title{display:flex;justify-content:space-between;gap:12px;align-items:center}.subgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:16px}.chart-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:16px}.chart-card{min-height:260px}.chart-card canvas{width:100%;height:190px}.chart-legend{display:flex;gap:10px;flex-wrap:wrap}.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px}@media(max-width:1100px){.chart-grid{grid-template-columns:1fr}}@media(max-width:900px){.grid,.subgrid{grid-template-columns:1fr}}
 </style>
 </head>
 <body><div class="shell"><div class="title"><h1>🐋 Whale Copy Bot</h1><div id="socket" class="pill bad">socket disconnected</div></div>
@@ -398,6 +441,11 @@ table{width:100%;border-collapse:collapse}th,td{border-bottom:1px solid #30363d;
 <div class="card"><div class="label">Backtest Best</div><div id="backtest" class="value">--</div><div id="backtest-meta" class="meta">waiting for reports</div></div>
 <div class="card"><div class="label">API / Rate Limit</div><div id="api" class="value">--</div><div id="api-meta" class="meta">poll --</div></div>
 </div>
+<div class="chart-grid">
+  <div class="panel chart-card"><h2>Runtime Activity</h2><canvas id="runtime-chart" width="520" height="190"></canvas><div class="meta chart-legend"><span><i class="dot" style="background:#58a6ff"></i>signals</span><span><i class="dot" style="background:#3fb950"></i>paper</span><span><i class="dot" style="background:#f85149"></i>live</span></div></div>
+  <div class="panel chart-card"><h2>Signal Notional</h2><canvas id="notional-chart" width="520" height="190"></canvas><div class="meta">recent whale signal notionals + planned copy cap</div></div>
+  <div class="panel chart-card"><h2>Backtest Iterations</h2><canvas id="backtest-chart" width="520" height="190"></canvas><div id="backtest-note" class="meta">cached closed-market sample; high overfit risk</div></div>
+</div>
 <div class="panel"><h2>Recent Whale Signals</h2><table><thead><tr><th>Market</th><th>Whale</th><th>Trade</th><th>Planned Copy</th><th>Confidence</th><th>Reason</th><th>Tx</th></tr></thead><tbody id="rows"><tr><td colspan="7" class="meta">waiting for signals</td></tr></tbody></table></div></div>
 <script>
 const $=id=>document.getElementById(id);
@@ -406,7 +454,29 @@ function pct(x){return x==null?'--':Number(x).toFixed(2)+'%'}
 function bps(x){return Number(x||0).toFixed(1)+' bps'}
 function ago(ts){if(!ts)return'--';let d=Math.max(0,Date.now()/1000-ts);if(d<60)return Math.floor(d)+'s ago';if(d<3600)return Math.floor(d/60)+'m ago';return Math.floor(d/3600)+'h ago'}
 function esc(v){return String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+const runtimeSeries=[];
+function drawLineChart(canvasId, series, opts={}){
+  const c=$(canvasId); if(!c) return; const ctx=c.getContext('2d'); const w=c.width, h=c.height; ctx.clearRect(0,0,w,h);
+  ctx.strokeStyle='#30363d'; ctx.lineWidth=1; ctx.fillStyle='#8b949e'; ctx.font='11px system-ui';
+  for(let i=0;i<4;i++){let y=18+i*(h-36)/3;ctx.beginPath();ctx.moveTo(42,y);ctx.lineTo(w-10,y);ctx.stroke()}
+  const values=series.flatMap(s=>s.data||[]).filter(v=>Number.isFinite(Number(v))).map(Number); const max=Math.max(opts.max||0,...values,1); const min=Math.min(opts.min??0,...values,0); const span=max-min||1;
+  ctx.fillText(max.toFixed(opts.digits??0),4,22); ctx.fillText(min.toFixed(opts.digits??0),4,h-14);
+  for(const s of series){const data=s.data||[]; if(data.length<1) continue; ctx.strokeStyle=s.color; ctx.lineWidth=2; ctx.beginPath(); data.forEach((v,i)=>{const x=42+(w-56)*(data.length===1?1:i/(data.length-1)); const y=(h-18)-((Number(v)-min)/span)*(h-38); if(i===0)ctx.moveTo(x,y); else ctx.lineTo(x,y)}); ctx.stroke(); data.forEach((v,i)=>{const x=42+(w-56)*(data.length===1?1:i/(data.length-1)); const y=(h-18)-((Number(v)-min)/span)*(h-38); ctx.fillStyle=s.color; ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2); ctx.fill()})}
+}
+function drawBarChart(canvasId, rows, key, opts={}){
+  const c=$(canvasId); if(!c) return; const ctx=c.getContext('2d'); const w=c.width, h=c.height; ctx.clearRect(0,0,w,h);
+  const vals=rows.map(r=>Number(r[key]||0)); const max=Math.max(...vals.map(v=>Math.abs(v)),1); const zero=h/2; ctx.strokeStyle='#30363d'; ctx.beginPath(); ctx.moveTo(34,zero); ctx.lineTo(w-8,zero); ctx.stroke();
+  const bw=Math.max(10,(w-50)/Math.max(rows.length,1)-6); rows.forEach((r,i)=>{const v=Number(r[key]||0); const x=38+i*((w-50)/Math.max(rows.length,1)); const barH=Math.abs(v)/max*(h/2-24); ctx.fillStyle=v>=0?'#3fb950':'#f85149'; ctx.fillRect(x, v>=0?zero-barH:zero, bw, barH); ctx.fillStyle='#8b949e'; ctx.font='10px system-ui'; ctx.fillText(String(r.iteration??i), x+2, h-5)}); ctx.fillStyle='#8b949e'; ctx.font='11px system-ui'; ctx.fillText('ROI %',4,14); ctx.fillText(max.toFixed(0),4,zero-(h/2-24)); ctx.fillText((-max).toFixed(0),4,zero+(h/2-24));
+}
+function updateCharts(s){
+  runtimeSeries.push({ts:Date.now(), signals:Number(s.signal_count||0), paper:Number(s.paper_trade_count||0), live:Number(s.live_trade_count||0)}); while(runtimeSeries.length>80) runtimeSeries.shift();
+  drawLineChart('runtime-chart',[{color:'#58a6ff',data:runtimeSeries.map(p=>p.signals)},{color:'#3fb950',data:runtimeSeries.map(p=>p.paper)},{color:'#f85149',data:runtimeSeries.map(p=>p.live)}]);
+  const sigs=(s.signals||[]).slice().reverse().slice(-40); drawLineChart('notional-chart',[{color:'#58a6ff',data:sigs.map(x=>Number(x.notional||0))},{color:'#d29922',data:sigs.map(x=>Number(x.planned_copy_notional||0))}],{digits:0});
+  const bt=s.backtest_metrics||{}; drawBarChart('backtest-chart', bt.iterations||[], 'roi_pct'); const note=$('backtest-note'); if(note){note.textContent=(bt.best_strategy||'best strategy --')+' | best ROI '+(bt.best_roi_pct==null?'--':Number(bt.best_roi_pct).toFixed(2)+'%')+' | sample/overfit caution'}
+}
+
 function render(s){
+  updateCharts(s);
   let rt=s.runtime||{};$('mode').textContent=rt.label||(s.live_enabled?'LIVE COPY ENABLED':'PAPER / DRY-RUN');$('mode').className='value '+(s.live_enabled?'bad':'warn');$('mode-meta').textContent=s.live_enabled?'live copy gate is ON':'no live funds/orders from this dashboard';
   $('signals').textContent=s.signal_count;$('paper').textContent=s.paper_trade_count;$('live').textContent=s.live_trade_count;
   let wh=s.wallet_history||{};$('wallets').textContent=wh.unique_wallets_checked??s.unique_wallets_checked;$('wallet-meta').textContent='first-visible signals '+(wh.first_visible_signal_count??0)+' | cache '+(wh.history_cache_size??0);
@@ -459,9 +529,19 @@ async def run_dashboard(state: WhaleCopyState, shutdown: asyncio.Event) -> None:
     runner = web.AppRunner(app, access_log=None)
     await runner.setup()
     port = int(os.getenv("DASHBOARD_PORT", os.getenv("PORT", "8766")))
-    site = web.TCPSite(runner, "0.0.0.0", port)
+    ssl_context = None
+    scheme = "http"
+    cert_file = os.getenv("DASHBOARD_SSL_CERT")
+    key_file = os.getenv("DASHBOARD_SSL_KEY")
+    if cert_file and key_file:
+        import ssl
+
+        ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        ssl_context.load_cert_chain(cert_file, key_file)
+        scheme = "https"
+    site = web.TCPSite(runner, "0.0.0.0", port, ssl_context=ssl_context)
     await site.start()
-    logger.info("whale_dashboard_started", extra={"port": port})
+    logger.info("whale_dashboard_started", extra={"port": port, "scheme": scheme})
     task = asyncio.create_task(broadcaster())
     try:
         await shutdown.wait()

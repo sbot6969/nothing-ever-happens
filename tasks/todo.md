@@ -50,3 +50,30 @@ Review / result:
 - Caveat: high overfit/small sample; recommendation remains paper-only until walk-forward/order-book validation.
 - Full pytest: 183 passed, 1 warning.
 - Runtime verified: main_count=1, whale_count=1, both dashboards OK.
+
+Review 2026-05-04 dashboards:
+- Diagnosed 8766: service was listening, but only HTTP; opening it as HTTPS caused TLS/protocol error. Updated whale-copy dashboard to support DASHBOARD_SSL_CERT/DASHBOARD_SSL_KEY and restarted it on HTTPS.
+- Added charts to main 8765 dashboard: market stats, portfolio value, trade-flow ledger counts.
+- Added charts to whale-copy 8766 dashboard: runtime activity, signal notional/planned copy, and backtest iteration ROI bars from iteration_report.json.
+- Safety unchanged: whale-copy remains paper/dry-run unless WHALE_COPY_LIVE_ENABLED is explicitly enabled.
+- Verification: targeted pytest passed (26 passed); HTTP(S) checks returned 200 for 8765/8766; WebSocket smoke passed for both dashboards.
+
+# Current task — 2026-05-04 multi-bot Polymarket platform
+
+- [x] Capture voice request and financial safety boundary.
+- [x] Create master TODO and per-agent task specs.
+- [x] Spawn backend-dev for whale filter + backtest harness + tests. Session: marine-bloom.
+- [x] Spawn research/default agent for hedge-fund/market-making research docs. research-dev id unavailable; default fallback failed; using backend-dev research session: kind-kelp.
+- [x] Spawn frontend-dev for unified dashboard. Session: fresh-atlas.
+- [ ] research-dev: create source-backed `docs/polymarket_multi_bot/RESEARCH.md`.
+- [ ] research-dev: create concrete `docs/polymarket_multi_bot/STRATEGIES.md` and implementation TODOs.
+- [ ] research-dev: commit docs changes with clear message.
+- [x] backend-dev: implement whale threshold helper ($10k absolute OR >=30% market size with market >=$10k), tests, and backtest integration.
+- [x] backend-dev: add safe multi-strategy backtest comparison skeleton for nothing_happens, whale_copy, market_making, normal_distribution_amm.
+- [x] backend-dev: run focused/full pytest and commit. Full pytest passed: `192 passed, 1 warning`.
+- [ ] Integrate agent outputs and run focused/full tests.
+- [ ] Run security-reviewer and cross/adversarial review.
+- [ ] Commit/push safe paper-mode work to GitHub fork.
+- [ ] Restart/verify paper-only bots/dashboard after tests pass.
+- [x] Install 30-minute recurring safe monitor job via launchd: com.sbot.neh-multibot-monitor.
+- [blocked] Close positions, create/fund wallets, transfer/split $50, enable live mode — requires separate explicit typed confirmation with exact scope.
