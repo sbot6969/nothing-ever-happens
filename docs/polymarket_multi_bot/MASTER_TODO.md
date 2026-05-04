@@ -79,3 +79,9 @@
 - [x] Map specialist-agent voice to agent-flow/dashboard/monitor checklist.
 - [ ] Continue open non-financial TODOs from the trace (larger backtests/config schema/final runtime verification remain).
 - [blocked] Live financial items require separate explicit typed confirmation.
+
+
+## 12. Detailed all-voice task extraction
+- [x] Re-read all available project-relevant voice transcripts and create `docs/polymarket_multi_bot/VOICE_TASKS_DETAILED_FROM_GS.md`.
+- [x] Fix dashboard-visible durable `research-agent` and `quant-math-agent`, then launch both with follow-up tasks.
+- [ ] Integrate the newly launched durable agents' follow-up outputs.

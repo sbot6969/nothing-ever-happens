@@ -69,3 +69,20 @@ _TBD._
 - [x] Run full pytest: `208 passed, 1 warning`.
 - [x] Commit/push config allocator changes: `paper-first multi-bot platform config`.
 - [blocked] Wallet creation/funding remains blocked.
+
+## 2026-05-04 18:xx — dashboard missing specialist agents / full voice TODO pass
+- [ ] Root-cause why research/quant specialists are not visible as separate dashboard agents.
+- [ ] Create durable OpenClaw agent definitions for `research-agent` and `quant-math-agent` (not backend-dev session aliases).
+- [ ] Add both agents to dashboard-visible OpenClaw agent list and verify cards appear.
+- [ ] Launch both new specialist agents with research/quant tasks.
+- [ ] Re-extract all available voice transcripts and write a maximal detailed task list from every voice message.
+- [ ] Cross-check detailed voice TODO against existing project docs/tasks and update missing identifiers/status.
+- [ ] Continue safe implementation tasks; keep live finance actions blocked.
+
+### Progress / review
+- [x] Root cause found: the previous “research/quant agents” existed as Markdown task/session aliases, not as dashboard-visible durable agent definitions.
+- [x] Created dashboard-visible `research-agent` and `quant-math-agent` agent definitions and registered them.
+- [x] Launched both agents with concrete follow-up research/quant tasks; dashboard verified both active with one session each.
+- [x] Created full detailed voice task list: `docs/polymarket_multi_bot/VOICE_TASKS_DETAILED_FROM_GS.md`.
+- [x] Integrated follow-up docs from both specialist agents: `RESEARCH_AGENT_FOLLOWUP.md`, `QUANT_AGENT_FOLLOWUP.md`.
+- [x] Verification: specialist quant agent ran focused pytest: 22 passed.

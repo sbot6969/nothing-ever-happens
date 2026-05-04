@@ -63,7 +63,9 @@ User asked the coordinator to create needed agents automatically, especially res
 - [x] Define agent flow in `AGENT_FLOW.md`.
 - [x] Create `AGENT_REGISTRY.md`.
 - [x] Create/deploy deep research agent task.
+- [x] Create actual dashboard-visible `research-agent` agent definition and launch session.
 - [x] Create/deploy quant/math/finance/big-data agent task.
+- [x] Create actual dashboard-visible `quant-math-agent` agent definition and launch session.
 - [x] Research agent produced `RESEARCH_APPENDIX.md` and strategy additions.
 - [x] Quant/math agent produced `QUANT_REVIEW.md`, quant validation helpers, and tests.
 - [x] Developers implemented backend/dashboard/test foundations.
@@ -76,3 +78,8 @@ User asked the coordinator to create needed agents automatically, especially res
 - [x] Monitor checks voice docs, TODOs, agent registry, dashboards, bot processes, git status, and recent commits.
 - [x] Monitor generates a Telegram summary every 30 minutes via OpenClaw system event wake.
 - [ ] Confirm the next scheduled 30-minute tick delivers Telegram summary end-to-end.
+
+
+## Full detailed voice task list
+
+- [x] Created `docs/polymarket_multi_bot/VOICE_TASKS_DETAILED_FROM_GS.md` with the full task extraction from all available project-relevant voice transcripts.
