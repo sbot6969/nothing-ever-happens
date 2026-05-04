@@ -32,10 +32,10 @@
 
 ## 5. Backtesting
 - [x] Build common backtest harness for all strategy families.
-- [ ] Download/prepare larger ignored historical data snapshots.
-- [ ] Run per-strategy backtests across more markets/trades/types.
-- [ ] Produce comparable metrics: PnL, ROI, hit rate, drawdown, turnover, exposure, skipped-signal reasons.
-- [ ] Record results in `docs/polymarket_multi_bot/BACKTEST_RESULTS.md`.
+- [x] Download/prepare larger ignored historical data snapshots: `artifacts/whale_copy/closed_recent_150`.
+- [x] Run per-strategy backtests across more markets/trades/types using public closed_recent_150 snapshot.
+- [x] Produce comparable metrics: PnL, ROI, hit rate, drawdown, turnover, exposure, skipped-signal reasons.
+- [x] Record results in `docs/polymarket_multi_bot/BACKTEST_RESULTS.md`.
 
 ## 6. Unified dashboard
 - [x] Add platform dashboard section/cards for all four sub-bots.

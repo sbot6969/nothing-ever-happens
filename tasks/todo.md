@@ -46,3 +46,15 @@ _TBD._
 - [x] Restart/verify paper dashboards/runtimes after tests pass: main HTTPS 8765=200, whale HTTPS 8766=200, bot processes main+whale only.
 - [ ] Confirm next scheduled 30-minute Telegram summary arrives.
 - [blocked] Live financial actions require separate explicit typed confirmation.
+
+
+# Current task — continue non-financial multi-bot execution
+
+- [x] Extend common multi-strategy result metrics for report requirements.
+- [x] Add deterministic BACKTEST_RESULTS.md generator from cached snapshots.
+- [x] Add tests for report generation and required metrics.
+- [x] Download larger public historical snapshot: 150 closed markets, 20,979 trades, 300 resolution assets.
+- [x] Run per-strategy comparison and write `docs/polymarket_multi_bot/BACKTEST_RESULTS.md`.
+- [x] Run full pytest: `203 passed, 1 warning`.
+- [ ] Commit/push safe paper-mode changes.
+- [blocked] No live financial actions without explicit typed confirmation.
