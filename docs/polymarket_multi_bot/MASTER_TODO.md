@@ -7,9 +7,9 @@
 
 ## 1. Requirements/spec
 - [x] Capture voice request in `docs/polymarket_multi_bot/VOICE_REQUEST_2026-05-04.md`.
-- [ ] Define unified platform architecture for four sub-bots.
-- [ ] Define shared strategy interface, capital allocator interface, and dashboard data model.
-- [ ] Define per-bot config schema and dry-run/live gates.
+- [x] Define unified platform architecture for four sub-bots.
+- [x] Define shared strategy interface, capital allocator interface, and dashboard data model.
+- [x] Define per-bot config schema and dry-run/live gates.
 
 ## 2. Whale-copy improvements
 - [x] Update whale filter: whale if notional >= $10k OR notional >= 30% of market size when market size >= $10k.

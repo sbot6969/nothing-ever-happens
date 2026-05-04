@@ -58,3 +58,14 @@ _TBD._
 - [x] Run full pytest: `203 passed, 1 warning`.
 - [x] Commit/push safe paper-mode changes: `aed83e9 Add multi-strategy backtest results report`.
 - [blocked] No live financial actions without explicit typed confirmation.
+
+
+# Current task — platform config allocator
+
+- [x] Add paper-first multi-bot config schema module.
+- [x] Add capital allocator helpers and caps.
+- [x] Add tests rejecting live-send config without typed confirmation.
+- [x] Document schema in `docs/polymarket_multi_bot/CONFIG_SCHEMA.md`.
+- [x] Run full pytest: `208 passed, 1 warning`.
+- [ ] Commit/push config allocator changes.
+- [blocked] Wallet creation/funding remains blocked.
