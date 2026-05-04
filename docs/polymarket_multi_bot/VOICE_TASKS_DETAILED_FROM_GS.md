@@ -59,7 +59,7 @@ Scope: all available project-relevant voice transcripts re-read from the local c
 - [x] Research mathematical/strategic improvements.
 - [x] Add new strategy ideas to docs/TODOs.
 - [x] Re-run tests/backtests after improvements.
-- [ ] Continue up to five clean improvement iterations only if each iteration has non-leaky validation; current results remain underpowered.
+- [x] Continue up to five clean improvement iterations only if each iteration has non-leaky validation; current results remain underpowered.
 
 ## F. Research requirements from the voice messages
 

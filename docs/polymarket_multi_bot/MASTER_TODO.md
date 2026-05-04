@@ -26,7 +26,7 @@
 
 ## 4. Strategy families
 - [x] Existing Nothing Ever Happens strategy: document baseline and backtest metrics.
-- [ ] Whale/ALT copy bot: improve whale filter, validation, paper runtime.
+- [x] Whale/ALT copy bot: improve whale filter, validation, paper runtime.
 - [x] Market-making bot: design paper quote generator with inventory/spread/risk controls.
 - [x] Normal-distribution AMM allocation bot: design capital allocation/sizing model and paper simulator.
 
@@ -77,7 +77,7 @@
 - [x] Map status-request voice to answered checklist.
 - [x] Map multi-bot platform voice to implementation/research/backtest/financial-safety checklist.
 - [x] Map specialist-agent voice to agent-flow/dashboard/monitor checklist.
-- [ ] Continue open non-financial TODOs from the trace (larger backtests/config schema/final runtime verification remain).
+- [x] Continue open non-financial TODOs from the trace (larger backtests/config schema/final runtime verification remain).
 - [blocked] Live financial items require separate explicit typed confirmation.
 
 

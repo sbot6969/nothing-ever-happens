@@ -204,11 +204,89 @@ def write_markdown(report: ExperimentReport, out: Path) -> None:
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+@dataclass(frozen=True)
+class WalkForwardIterationRow:
+    iteration: int
+    name: str
+    train_copied: int
+    train_roi_pct: float
+    validation_copied: int
+    validation_roi_pct: float
+    oos_copied: int
+    oos_roi_pct: float
+    selected_on_train: bool
+    verdict: str
+
+
+def _split_thirds(trades: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+    ordered = sorted(trades, key=lambda row: int(float(row.get("timestamp") or 0)))
+    n = len(ordered)
+    if n == 0:
+        return [], [], []
+    a = max(1, n // 3)
+    b = max(a + 1, 2 * n // 3) if n >= 3 else n
+    return ordered[:a], ordered[a:b], ordered[b:]
+
+
+def _iteration_specs(trades: list[dict[str, Any]], resolutions: dict[str, Resolution]):
+    raw_scores = _wallet_scores(trades, resolutions)
+    category, _category_roi = _best_category(trades, resolutions)
+    return [
+        ("iteration_0_baseline_first_visible_large_buy", lambda rows: rows, WhaleBacktestConfig(min_whale_notional_usd=250, copy_fraction=0.10, max_copy_notional_usd=25, max_history_count=1)),
+        ("iteration_1_liquidity_spread_aware", lambda rows: _filter(rows, lambda t: float(t.get("liquidity_usd") or t.get("market_volume_usd") or 0) >= 1000 and float(t.get("price") or 0) <= 0.80), WhaleBacktestConfig(min_whale_notional_usd=250, copy_fraction=0.08, max_copy_notional_usd=20, max_history_count=2, spread_bps=35, slippage_bps=50, max_liquidity_fraction=0.05)),
+        ("iteration_2_wallet_quality_scored", lambda rows: _filter(rows, lambda t: raw_scores.get(str(t.get("proxyWallet") or t.get("user") or "").lower(), -99) > 0), WhaleBacktestConfig(min_whale_notional_usd=150, copy_fraction=0.08, max_copy_notional_usd=20, max_history_count=5, spread_bps=35, slippage_bps=50)),
+        ("iteration_3_market_type_specialization", lambda rows: _filter(rows, lambda t: _category(t) == category) if category else rows, WhaleBacktestConfig(min_whale_notional_usd=100, copy_fraction=0.08, max_copy_notional_usd=20, max_history_count=3, spread_bps=35, slippage_bps=60)),
+        ("iteration_4_portfolio_risk_optimized", lambda rows: _filter(rows, lambda t: float(t.get("price") or 0) <= 0.70 and "updown-5m" not in _title(t)), WhaleBacktestConfig(min_whale_notional_usd=150, copy_fraction=0.05, max_copy_notional_usd=12, max_history_count=3, spread_bps=40, slippage_bps=75, max_liquidity_fraction=0.03, gas_cost_usd=0.02)),
+        ("iteration_5_calibration_arbitrage_addons", lambda rows: _filter(rows, lambda t: float(t.get("price") or 0) <= 0.50 and "updown-5m" not in _title(t) and raw_scores.get(str(t.get("proxyWallet") or t.get("user") or "").lower(), -99) >= 0.50), WhaleBacktestConfig(min_whale_notional_usd=100, copy_fraction=0.04, max_copy_notional_usd=10, max_history_count=10, spread_bps=45, slippage_bps=90, max_liquidity_fraction=0.03, gas_cost_usd=0.02)),
+    ]
+
+
+def run_walk_forward_iterations(trades: list[dict[str, Any]], resolutions: dict[str, Resolution]) -> list[WalkForwardIterationRow]:
+    train, validation, oos = _split_thirds(trades)
+    specs = _iteration_specs(train, resolutions)
+    train_results = []
+    for idx, (name, filter_fn, cfg) in enumerate(specs):
+        result = run_backtest(filter_fn(train), resolutions, cfg)
+        train_results.append((idx, name, filter_fn, cfg, result))
+    eligible = [row for row in train_results if len(row[4].copied) >= 5]
+    best_idx = max(eligible, key=lambda row: (row[4].roi_pct, row[4].total_pnl_usd), default=train_results[0])[0] if train_results else -1
+    rows: list[WalkForwardIterationRow] = []
+    for idx, name, filter_fn, cfg, train_result in train_results:
+        validation_result = run_backtest(filter_fn(validation), resolutions, cfg)
+        oos_result = run_backtest(filter_fn(oos), resolutions, cfg)
+        selected = idx == best_idx
+        verdict = "reject_underpowered"
+        if selected and len(oos_result.copied) >= 20 and oos_result.roi_pct > 0 and validation_result.roi_pct > 0:
+            verdict = "candidate_needs_l2_replay"
+        elif selected:
+            verdict = "selected_on_train_but_rejected_oos_or_sample"
+        rows.append(WalkForwardIterationRow(idx, name, len(train_result.copied), train_result.roi_pct, len(validation_result.copied), validation_result.roi_pct, len(oos_result.copied), oos_result.roi_pct, selected, verdict))
+    return rows
+
+
+def write_walk_forward_markdown(rows: list[WalkForwardIterationRow], out: Path) -> None:
+    lines = [
+        "# Whale-Copy Walk-Forward Iteration Validation",
+        "",
+        "Paper/offline only. Iterations are selected using the train slice and then checked on validation and OOS slices.",
+        "",
+        "| Iteration | Strategy | Train copied | Train ROI | Validation copied | Validation ROI | OOS copied | OOS ROI | Selected | Verdict |",
+        "|---:|---|---:|---:|---:|---:|---:|---:|---|---|",
+    ]
+    for row in rows:
+        lines.append(f"| {row.iteration} | `{row.name}` | {row.train_copied} | {row.train_roi_pct:.2f}% | {row.validation_copied} | {row.validation_roi_pct:.2f}% | {row.oos_copied} | {row.oos_roi_pct:.2f}% | {str(row.selected_on_train).lower()} | `{row.verdict}` |")
+    lines.extend(["", "## Rule", "", "A whale-copy iteration remains paper-only unless train selection survives validation and OOS with enough copied actions and then passes L2/order-lifecycle replay plus live security review."])
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run whale-copy strategy iteration backtests")
     parser.add_argument("--snapshot-dir", type=Path, required=True)
     parser.add_argument("--out-json", type=Path, default=Path("artifacts/whale_copy/iteration_report.json"))
     parser.add_argument("--out-md", type=Path, default=Path("docs/whale_copy_research/BACKTEST_ITERATIONS.md"))
+    parser.add_argument("--out-walkforward-md", type=Path, default=None)
+    parser.add_argument("--out-walkforward-json", type=Path, default=None)
     return parser
 
 
@@ -223,6 +301,14 @@ def main(argv: list[str] | None = None) -> int:
     args.out_json.parent.mkdir(parents=True, exist_ok=True)
     args.out_json.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     write_markdown(report, args.out_md)
+    if args.out_walkforward_md or args.out_walkforward_json:
+        wf_rows = run_walk_forward_iterations(trades, resolutions)
+        wf_payload = [asdict(row) for row in wf_rows]
+        if args.out_walkforward_json:
+            args.out_walkforward_json.parent.mkdir(parents=True, exist_ok=True)
+            args.out_walkforward_json.write_text(json.dumps(wf_payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        if args.out_walkforward_md:
+            write_walk_forward_markdown(wf_rows, args.out_walkforward_md)
     print(json.dumps(payload, indent=2, sort_keys=True))
     return 0
 
