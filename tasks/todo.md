@@ -41,8 +41,8 @@ _TBD._
 - [x] Update master TODO from voice trace.
 - [x] Integrate cross-review changes and commit if needed (cross-review commit `5ca4953`).
 - [x] Run full pytest: `202 passed, 1 warning`.
-- [ ] Commit remaining safe paper-mode changes.
-- [ ] Push branch to GitHub fork.
-- [ ] Restart/verify paper dashboards/runtimes after tests pass.
+- [x] Commit remaining safe paper-mode changes.
+- [x] Push branch to GitHub fork.
+- [x] Restart/verify paper dashboards/runtimes after tests pass: main HTTPS 8765=200, whale HTTPS 8766=200, bot processes main+whale only.
 - [ ] Confirm next scheduled 30-minute Telegram summary arrives.
 - [blocked] Live financial actions require separate explicit typed confirmation.

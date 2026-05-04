@@ -51,9 +51,9 @@
 
 ## 8. Release/push/runtime
 - [x] Run focused and full tests.
-- [ ] Commit and push to GitHub fork branch.
-- [ ] Restart paper runtimes only after tests pass.
-- [ ] Verify dashboards respond.
+- [x] Commit and push to GitHub fork branch.
+- [x] Restart paper runtimes only after tests pass.
+- [x] Verify dashboards respond: main HTTPS 8765=200, whale HTTPS 8766=200.
 - [ ] Report status and blockers to user.
 
 ## 9. Recurring monitoring
