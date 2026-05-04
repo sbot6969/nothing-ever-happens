@@ -32,3 +32,17 @@ _TBD._
 - Focused pytest: `./venv/bin/python -m pytest -q tests/test_whale_thresholds.py tests/test_whale_copy_backtest.py tests/test_multistrategy_backtest.py tests/test_quant_validation.py tests/test_dashboard.py` → `33 passed`.
 - Full pytest before commit: `./venv/bin/python -m pytest -q` → `202 passed, 1 warning`.
 - Committed safe changes: `b9b0a03 Add multi-bot cross review safeguards`.
+
+
+# Current task — voice requirements trace and execution
+
+- [x] Re-validate last three voice-message transcripts.
+- [x] Write `docs/polymarket_multi_bot/VOICE_REQUIREMENTS_TRACE.md`.
+- [x] Update master TODO from voice trace.
+- [x] Integrate cross-review changes and commit if needed (cross-review commit `5ca4953`).
+- [x] Run full pytest: `202 passed, 1 warning`.
+- [ ] Commit remaining safe paper-mode changes.
+- [ ] Push branch to GitHub fork.
+- [ ] Restart/verify paper dashboards/runtimes after tests pass.
+- [ ] Confirm next scheduled 30-minute Telegram summary arrives.
+- [blocked] Live financial actions require separate explicit typed confirmation.

@@ -44,9 +44,9 @@
 
 ## 7. Agent work and reviews
 - [x] Backend agent: strategy interfaces, whale filter, backtest harness, tests.
-- [ ] Research agent: source-backed research docs and strategy ideas.
+- [x] Research agent: source-backed research docs and strategy ideas.
 - [x] Frontend agent: unified dashboard design and implementation.
-- [ ] Security reviewer: final review of code, configs, logging, live gates, secret handling.
+- [x] Security reviewer: final review of code, configs, logging, live gates, secret handling.
 - [x] Cross-test/adversarial review: one agent validates assumptions/test gaps from another.
 
 ## 8. Release/push/runtime
@@ -68,5 +68,14 @@
 - [x] Deep research agent: produce appendix and updated implementation ideas.
 - [x] Quant/math agent: produce quant review and simulations/tests.
 - [x] Add agent/task status into dashboard.
-- [ ] Run security-reviewer after research/math/dev/dashboard integration.
+- [x] Run security-reviewer after research/math/dev/dashboard integration.
 - [x] Run cross/adversarial review (completed in parallel with security review; see `CROSS_REVIEW.md` ordering note).
+
+
+## 11. Voice requirements trace
+- [x] Re-listened/revalidated the last three voice-message transcripts into `docs/polymarket_multi_bot/VOICE_REQUIREMENTS_TRACE.md`.
+- [x] Map status-request voice to answered checklist.
+- [x] Map multi-bot platform voice to implementation/research/backtest/financial-safety checklist.
+- [x] Map specialist-agent voice to agent-flow/dashboard/monitor checklist.
+- [ ] Continue open non-financial TODOs from the trace (larger backtests/config schema/final runtime verification remain).
+- [blocked] Live financial items require separate explicit typed confirmation.
