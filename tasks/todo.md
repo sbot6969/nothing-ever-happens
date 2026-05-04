@@ -56,5 +56,5 @@ _TBD._
 - [x] Download larger public historical snapshot: 150 closed markets, 20,979 trades, 300 resolution assets.
 - [x] Run per-strategy comparison and write `docs/polymarket_multi_bot/BACKTEST_RESULTS.md`.
 - [x] Run full pytest: `203 passed, 1 warning`.
-- [ ] Commit/push safe paper-mode changes.
+- [x] Commit/push safe paper-mode changes: `aed83e9 Add multi-strategy backtest results report`.
 - [blocked] No live financial actions without explicit typed confirmation.
