@@ -2,8 +2,8 @@
 
 ## Safety gate
 - [x] Keep all new strategy bots in paper/dry-run mode by default.
-- [ ] Do **not** close positions, transfer funds, create/fund wallets, or enable live trading without separate explicit typed confirmation.
-- [ ] Before any live launch: rerun security review, secret scan, wallet/key handling review, and final typed confirmation.
+- [blocked] Do **not** close positions, transfer funds, create/fund wallets, or enable live trading without separate explicit typed confirmation.
+- [blocked] Before any live launch: rerun security review, secret scan, wallet/key handling review, and final typed confirmation.
 
 ## 1. Requirements/spec
 - [x] Capture voice request in `docs/polymarket_multi_bot/VOICE_REQUEST_2026-05-04.md`.
