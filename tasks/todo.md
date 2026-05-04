@@ -1,15 +1,15 @@
 # Security reviewer multi-bot review — 2026-05-04
 
 - [x] Read required multi-bot specs and reviewer task.
-- [ ] Inspect git status, branch, recent commits, and changed files.
-- [ ] Grep for live trading/wallet/transfer/close-position paths and live-gate defaults.
-- [ ] Secret-scan focused tracked files, docs, dashboard, scripts, and logs references.
-- [ ] Review dashboard/monitor/Telegram summaries for private data leakage.
-- [ ] Review backtest/quant docs for overfit and paper-only labeling.
-- [ ] Review downloader/monitor bounds, retries, and failure modes.
-- [ ] Run focused tests/checks.
-- [ ] Write `docs/polymarket_multi_bot/SECURITY_REVIEW.md` with severity findings and approval/blockers.
-- [ ] Commit safe review doc changes if appropriate.
+- [x] Inspect git status, branch, recent commits, and changed files.
+- [x] Grep for live trading/wallet/transfer/close-position paths and live-gate defaults.
+- [x] Secret-scan focused tracked files, docs, dashboard, scripts, and logs references.
+- [x] Review dashboard/monitor/Telegram summaries for private data leakage.
+- [x] Review backtest/quant docs for overfit and paper-only labeling.
+- [x] Review downloader/monitor bounds, retries, and failure modes.
+- [x] Run focused tests/checks.
+- [x] Write `docs/polymarket_multi_bot/SECURITY_REVIEW.md` with severity findings and approval/blockers.
+- [x] Commit safe review doc changes if appropriate.
 - [ ] Send exactly one Telegram completion/blocked message.
 
 ## Review notes
@@ -77,7 +77,7 @@ _TBD._
 - [x] Launch both new specialist agents with research/quant tasks.
 - [x] Re-extract all available voice transcripts and write a maximal detailed task list from every voice message.
 - [x] Cross-check detailed voice TODO against existing project docs/tasks and update missing identifiers/status.
-- [ ] Continue safe implementation tasks; keep live finance actions blocked.
+- [x] Continue safe implementation tasks; keep live finance actions blocked.
 
 ### Progress / review
 - [x] Root cause found: the previous “research/quant agents” existed as Markdown task/session aliases, not as dashboard-visible durable agent definitions.
@@ -89,7 +89,7 @@ _TBD._
 
 ## 2026-05-04 18:20 — autonomous voice task execution pass
 - [x] Do safe voice-task TODOs sequentially without waiting for further user input.
-- [ ] Keep live financial actions blocked unless separate typed confirmation + fresh security review is provided.
+- [blocked] Keep live financial actions blocked unless separate typed confirmation + fresh security review is provided.
 - [x] Strengthen 30-minute monitor so every tick reviews detailed voice task list, open TODOs, and actual specialist/subagent states.
 - [x] Continue implementation from highest-priority safe list: provenance/market_size_source, NEH adapter, larger/OOS reports, source audit, tests, commits/pushes.
 - [ ] Send progress pings every 30 minutes and final completion/blocked summary only when all safe tasks are complete.
