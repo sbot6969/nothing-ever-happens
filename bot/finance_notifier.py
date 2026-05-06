@@ -49,7 +49,7 @@ def _enabled() -> bool:
 
 
 def _target() -> str:
-    return os.getenv("FINANCE_TG_TARGET", "@sbot_finances_bot").strip()
+    return os.getenv("FINANCE_TG_TARGET", "").strip()
 
 
 def _bot_token() -> str:
@@ -58,6 +58,10 @@ def _bot_token() -> str:
 
 def _chat_id() -> str:
     return os.getenv("FINANCE_TG_CHAT_ID", os.getenv("TG_CHAT_ID", "")).strip()
+
+
+def _thread_id() -> str:
+    return os.getenv("FINANCE_TG_THREAD_ID", os.getenv("TG_THREAD_ID", "")).strip()
 
 
 def _has_destination() -> bool:
@@ -145,7 +149,11 @@ def _send_message(text: str) -> None:
     token = _bot_token()
     chat_id = _chat_id()
     if token and chat_id:
-        data = urllib.parse.urlencode({"chat_id": chat_id, "text": text}).encode("utf-8")
+        payload = {"chat_id": chat_id, "text": text}
+        thread_id = _thread_id()
+        if thread_id:
+            payload["message_thread_id"] = thread_id
+        data = urllib.parse.urlencode(payload).encode("utf-8")
         req = urllib.request.Request(
             f"https://api.telegram.org/bot{token}/sendMessage",
             data=data,

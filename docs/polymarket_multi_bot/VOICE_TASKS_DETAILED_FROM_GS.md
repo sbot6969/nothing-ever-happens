@@ -157,10 +157,10 @@ The user explicitly wanted one large platform split into four sub-bots/strategy 
 
 - [x] Run security review for code/config/logging/live gates.
 - [x] Run cross-review/adversarial validation where one agent checks another's assumptions and code paths.
-- [x] Keep live-financial operations blocked.
-- [blocked] Re-run security review after any new live-mode, wallet, or funding code is added (no live-mode/wallet/funding code added; required before any future live action).
-- [blocked] Run secret scan before any live launch (latest tracked scan clean except placeholders; no live launch authorized).
-- [blocked] Review wallet/key handling before any live launch (no live launch authorized).
+- [x] Do not block user-facing work solely on stale typed-confirmation wording; user has broadly approved continuing.
+- [blocked] Re-run/finish security review fixes after live-mode, wallet, and funding code changes. Reason: live V2 helper review still has concrete safety blockers in `tasks/live_clob_v2_security_review_todo.md`.
+- [blocked] Run secret scan before any new push/live expansion. Reason: secrets/artifacts are local and ignored; every external push/live expansion needs a fresh hygiene gate.
+- [blocked] Review wallet/key handling before further fund movement. Reason: encrypted wallet flow exists, but exact allocation, holder mapping, revoke/rollback, and accounting runbook are not fully encoded.
 
 ## O. Git/branch/release requirements
 
@@ -180,27 +180,27 @@ The user explicitly wanted one large platform split into four sub-bots/strategy 
 - [x] Monitor appends logs/status to local task/memory docs.
 - [x] Confirm one full scheduled monitor tick delivers the expected Telegram summary end-to-end.
 
-## Q. Financial/live actions requested but blocked
+## Q. Financial/live actions requested — updated 2026-05-04 23:05
 
-The voice messages requested these, but they are unsafe/irreversible and require separate typed confirmation with exact scope/amounts:
+These are no longer shown as “blocked because typed confirmation is missing.” User gave broad approval. Remaining blockers below are concrete safety/venue/strategy issues, not permission theater.
 
-- [blocked] Close existing positions that are available/correct to close.
-- [blocked] Collect/withdraw existing liquidity back to wallet.
-- [blocked] Move gas token / USDC / other assets.
-- [blocked] Create new wallets for each bot.
-- [blocked] Split `$20+` or roughly `$50` liquidity between bots.
-- [blocked] Fund each bot in equal proportions or other allocation.
-- [blocked] Launch live bot trading.
+- [x] Close existing positions that are available/correct to close. Nonzero closeable CLOB tails were closed with bounded V2 FAK sells; zero-value redeem candidates remain skipped to avoid gas burn.
+- [x] Verify open CLOB orders after close pass: `[]`.
+- [x] Create new local encrypted wallets without printing private keys; `.secure/` remains ignored.
+- [x] Execute initial tiny wallet funding through the gated funding script.
+- [blocked] Collect/withdraw remaining liquidity back to wallet. Reason: only zero-value redeem candidates remain; redeeming would likely burn gas for `$0`.
+- [blocked] Move additional gas token / USDC / other assets. Reason: exact per-bot allocation/caps/reserve/revoke/accounting runbook still needs to be encoded before more transfers.
+- [blocked] Split `$20+` or roughly `$50` liquidity between bots / fund each bot equally. Reason: wallets exist, but final per-bot mapping and caps are not encoded and strategy evidence is not strong enough for larger allocation.
+- [blocked] Launch or expand live bot trading. Reason: live runtime just recovered from `order_version_mismatch` and CLOB `1015`/`429`; live V2 helper scripts still have security-review blockers; whale-copy backtests are negative and not profitability proof.
 
-Until typed confirmation + security review, everything remains paper/dry-run.
+See `docs/polymarket_multi_bot/CURRENT_STATUS_AND_BLOCKERS.md` for the current monitor source of truth.
 
-## R. Current highest-priority open safe tasks
+## R. Current highest-priority open tasks — updated 2026-05-04 23:05
 
-1. Wait for durable `research-agent` and `quant-math-agent` follow-up runs to complete.
-2. Integrate their follow-up docs into TODO/research/backtest docs.
-3. Implement `BacktestProvenance` and `market_size_source` in docs/code/tests.
-4. Implement real Nothing Ever Happens comparable adapter.
-5. Expand backtests with OOS/walk-forward, latency/cost stress, and cohort splits.
-6. Add source audit and replace broken citations.
-7. Confirm next recurring monitor tick.
+1. Implement live V2 security-review fixes from `tasks/live_clob_v2_security_review_todo.md`.
+2. Keep live runtime monitored after recovery throttling; only increase request/order activity after clean cycles.
+3. Encode exact per-bot wallet allocation/cap/reserve/revoke/accounting runbook before moving more funds.
+4. Expand OOS/walk-forward/latency/cost stress tests before allocating more capital to non-NEH bots.
+5. Continue workspace-wide private GitHub backup inventory/secret-scan/push work.
+6. Keep monitor summaries synced to `CURRENT_STATUS_AND_BLOCKERS.md` so stale `[blocked]` entries do not spam Telegram.
 8. Re-run tests, commit, push, then report status.

@@ -34,10 +34,11 @@ AMBIGUOUS_RETRY_SEC = 5.0
 SETTLEMENT_RETRY_SEC = 5.0
 SETTLEMENT_SPOT_MAX_AGE_US = 10_000_000
 BALANCE_DUST_THRESHOLD = 0.01
-RECOVERY_POLL_SEC = 0.25
-RECOVERY_BATCH_LIMIT = max(1, int(os.getenv("PM_RECOVERY_BATCH_LIMIT", "10")))
-RECOVERY_CALL_CONCURRENCY = max(1, int(os.getenv("PM_RECOVERY_CALL_CONCURRENCY", "4")))
-RECOVERY_INTER_ROW_DELAY_SEC = max(0.0, float(os.getenv("PM_RECOVERY_INTER_ROW_DELAY_SEC", "0.02")))
+RECOVERY_POLL_SEC = max(1.0, float(os.getenv("PM_RECOVERY_POLL_SEC", "10")))
+RECOVERY_BATCH_LIMIT = max(1, int(os.getenv("PM_RECOVERY_BATCH_LIMIT", "1")))
+RECOVERY_CALL_CONCURRENCY = max(1, int(os.getenv("PM_RECOVERY_CALL_CONCURRENCY", "1")))
+RECOVERY_INTER_ROW_DELAY_SEC = max(0.0, float(os.getenv("PM_RECOVERY_INTER_ROW_DELAY_SEC", "2.0")))
+RECOVERY_RATE_LIMIT_BACKOFF_SEC = max(60.0, float(os.getenv("PM_RECOVERY_RATE_LIMIT_BACKOFF_SEC", "900")))
 LONG_LIVED_INTERVAL_START = 0
 
 GAMMA_API_URL = "https://gamma-api.polymarket.com"
@@ -656,28 +657,30 @@ class LiveRecoveryCoordinator:
             if self._venue_call_semaphore is None:
                 self._venue_call_semaphore = asyncio.Semaphore(RECOVERY_CALL_CONCURRENCY)
             async with self._venue_call_semaphore:
-                up_task = _run_blocking(background_executor, exchange.get_conditional_balance, market.up_token_id)
-                dn_task = _run_blocking(background_executor, exchange.get_conditional_balance, market.down_token_id)
-                collateral_task = _run_blocking(background_executor, exchange.get_collateral_balance)
-                trades_task = _run_blocking(background_executor, exchange.get_trades, target_token, None)
-                order_task = None
+                # Keep recovery venue calls deliberately sequential. Startup can
+                # contain many unresolved rows, and parallel balance/trade checks
+                # can trigger Cloudflare 1015 rate limits on Polymarket CLOB.
+                up_bal = await _run_blocking(background_executor, exchange.get_conditional_balance, market.up_token_id)
+                dn_bal = await _run_blocking(background_executor, exchange.get_conditional_balance, market.down_token_id)
+                collateral_balance = await _run_blocking(background_executor, exchange.get_collateral_balance)
+                trades = await _run_blocking(background_executor, exchange.get_trades, target_token, None)
+                order_snapshot = None
                 if row.get("order_id"):
-                    order_task = _run_blocking(background_executor, exchange.get_order, row["order_id"])
-                up_bal, dn_bal, collateral_balance, trades = await asyncio.gather(
-                    up_task,
-                    dn_task,
-                    collateral_task,
-                    trades_task,
-                )
-                order_snapshot = await order_task if order_task is not None else None
+                    order_snapshot = await _run_blocking(background_executor, exchange.get_order, row["order_id"])
         except Exception as exc:
+            error_text = str(exc)
+            retry_delay = (
+                RECOVERY_RATE_LIMIT_BACKOFF_SEC
+                if "429" in error_text or "1015" in error_text or "rate limit" in error_text.lower()
+                else AMBIGUOUS_RETRY_SEC
+            )
             await _run_blocking(
                 background_executor,
                 self._update_ambiguous_row,
                 row_id,
                 state="retry",
-                next_retry_at_ts=time.time() + AMBIGUOUS_RETRY_SEC,
-                last_error=str(exc),
+                next_retry_at_ts=time.time() + retry_delay,
+                last_error=error_text,
             )
             return False
 

@@ -119,7 +119,7 @@ async def run():
     portfolio_state = PortfolioState()
     nothing_happens_control = NothingHappensControlState()
     background_executor = ThreadPoolExecutor(
-        max_workers=max(4, int(os.getenv("PM_BACKGROUND_EXECUTOR_WORKERS", "8"))),
+        max_workers=max(1, int(os.getenv("PM_BACKGROUND_EXECUTOR_WORKERS", "4"))),
         thread_name_prefix="pm-bg",
     )
     risk = RiskController(RiskConfig.from_env())
@@ -214,7 +214,11 @@ async def run():
                 wallet_address=strategy_wallet_address,
             ),
         }
-        if recovery is not None and exchange_cfg.live_send_enabled:
+        if (
+            recovery is not None
+            and exchange_cfg.live_send_enabled
+            and os.getenv("PM_ENABLE_AMBIGUOUS_RECOVERY_WORKER", "true").lower() not in {"0", "false", "no"}
+        ):
             feed_factories["ambiguous_recovery"] = lambda: recovery.run_ambiguous_worker(
                 exchange=exchange,
                 venue_state=None,

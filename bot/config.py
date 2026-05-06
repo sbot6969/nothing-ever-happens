@@ -135,6 +135,7 @@ class NothingHappensConfig:
     edge_size_multiplier: float = 0.0
     max_trade_amount: float = 0.0
     request_concurrency: int = 4
+    max_markets_per_cycle: int = 25
     buy_retry_count: int = 3
     buy_retry_base_delay_sec: float = 1.0
     max_backoff_sec: float = 900.0
@@ -225,6 +226,10 @@ def _load_nothing_happens_config(
             "PM_NH_REQUEST_CONCURRENCY",
             int(strat.get("request_concurrency", 4)),
         ),
+        max_markets_per_cycle=_env_int(
+            "PM_NH_MAX_MARKETS_PER_CYCLE",
+            int(strat.get("max_markets_per_cycle", 25)),
+        ),
         buy_retry_count=_env_int(
             "PM_NH_BUY_RETRY_COUNT",
             int(strat.get("buy_retry_count", 3)),
@@ -297,6 +302,8 @@ def _validate_nothing_happens_config(cfg: NothingHappensConfig) -> None:
         raise ValueError(f"max_trade_amount must be >= 0, got {cfg.max_trade_amount}")
     if cfg.request_concurrency < 1:
         raise ValueError(f"request_concurrency must be >= 1, got {cfg.request_concurrency}")
+    if cfg.max_markets_per_cycle < 1:
+        raise ValueError(f"max_markets_per_cycle must be >= 1, got {cfg.max_markets_per_cycle}")
     if cfg.buy_retry_count < 1:
         raise ValueError(f"buy_retry_count must be >= 1, got {cfg.buy_retry_count}")
     if cfg.buy_retry_base_delay_sec < 0:

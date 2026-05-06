@@ -70,3 +70,20 @@ tasks/multibot_monitor.log
 tasks/multibot_monitor.launchd.out
 tasks/multibot_monitor.launchd.err
 tasks/multibot_monitor_summary.txt
+
+# Local encrypted wallet keystores / sensitive local state
+.secure/
+
+# Extra secret/local runtime safety (do not push real envs, keys, wallets, or local state)
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.sample
+*.pem
+*.key
+*.p8
+*.p12
+*-keypair.json
+wallet_batch_*.json
+artifacts/wallets/
+.local/

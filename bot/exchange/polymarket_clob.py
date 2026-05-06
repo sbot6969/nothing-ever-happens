@@ -28,20 +28,20 @@ TOKEN_DECIMAL_FACTOR = 10**6  # Both USDC and conditional tokens use 6 decimals 
 class PolymarketClobExchangeClient:
     def __init__(self, config: ExchangeConfig, allow_trading: bool) -> None:
         try:
-            from py_clob_client.client import ClobClient
-            from py_clob_client.clob_types import (
+            from py_clob_client_v2 import (
                 AssetType,
                 BalanceAllowanceParams,
+                ClobClient,
                 MarketOrderArgs,
                 OpenOrderParams,
                 OrderArgs,
                 OrderType,
+                Side as V2Side,
                 TradeParams,
             )
-            from py_clob_client.order_builder.constants import BUY, SELL
         except ImportError as exc:
             raise RuntimeError(
-                "Missing dependency py-clob-client. Install with: pip install -r requirements.txt"
+                "Missing dependency py-clob-client-v2. Install with: pip install -r requirements.txt"
             ) from exc
 
         self.allow_trading = allow_trading
@@ -57,8 +57,8 @@ class PolymarketClobExchangeClient:
         self._order_type = OrderType
         self._open_order_params = OpenOrderParams
         self._trade_params = TradeParams
-        self._buy = BUY
-        self._sell = SELL
+        self._buy = V2Side.BUY
+        self._sell = V2Side.SELL
 
         client_kwargs: dict[str, Any] = {"chain_id": config.chain_id}
         if config.private_key:
@@ -73,7 +73,12 @@ class PolymarketClobExchangeClient:
             raise ValueError("PRIVATE_KEY is required when order transmission is enabled")
 
         if config.private_key:
-            creds = self.client.create_or_derive_api_creds()
+            # V2-compatible API credential derivation. Avoid create_or_derive_api_key
+            # because existing keys can make /auth/api-key return 400.
+            if hasattr(self.client, "derive_api_key"):
+                creds = self.client.derive_api_key()
+            else:
+                creds = self.client.create_or_derive_api_creds()
             self.client.set_api_creds(creds)
 
     def get_mid_price(self, token_id: str) -> float:
@@ -93,8 +98,8 @@ class PolymarketClobExchangeClient:
     def get_market_rules(self, token_id: str) -> MarketRules | None:
         try:
             order_book = self.client.get_order_book(token_id)
-            tick_size = float(order_book.tick_size)
-            min_order_size = float(order_book.min_order_size)
+            tick_size = float(_get_order_book_value(order_book, "tick_size"))
+            min_order_size = float(_get_order_book_value(order_book, "min_order_size"))
             return MarketRules(tick_size=tick_size, min_order_size=min_order_size)
         except Exception as exc:
             logger.warning(
@@ -108,24 +113,26 @@ class PolymarketClobExchangeClient:
 
     def get_order_book(self, token_id: str) -> OrderBookSnapshot:
         order_book = self.client.get_order_book(token_id)
+        raw_bids = _get_order_book_value(order_book, "bids") or []
+        raw_asks = _get_order_book_value(order_book, "asks") or []
         bids = tuple(
-            OrderBookLevel(price=float(level.price), size=float(level.size))
-            for level in (order_book.bids or [])
+            OrderBookLevel(price=float(_get_level_value(level, "price")), size=float(_get_level_value(level, "size")))
+            for level in raw_bids
         )
         asks = tuple(
-            OrderBookLevel(price=float(level.price), size=float(level.size))
-            for level in (order_book.asks or [])
+            OrderBookLevel(price=float(_get_level_value(level, "price")), size=float(_get_level_value(level, "size")))
+            for level in raw_asks
         )
         try:
-            timestamp = int(order_book.timestamp or 0)
+            timestamp = int(_get_order_book_value(order_book, "timestamp") or 0)
         except (TypeError, ValueError):
             timestamp = 0
         return OrderBookSnapshot(
             token_id=token_id,
             bids=bids,
             asks=asks,
-            tick_size=float(order_book.tick_size),
-            min_order_size=float(order_book.min_order_size),
+            tick_size=float(_get_order_book_value(order_book, "tick_size")),
+            min_order_size=float(_get_order_book_value(order_book, "min_order_size")),
             timestamp=timestamp,
         )
 
@@ -143,7 +150,10 @@ class PolymarketClobExchangeClient:
         if not self.private_key:
             return []
 
-        raw_orders = self.client.get_orders(self._open_order_params(asset_id=token_id))
+        if hasattr(self.client, "get_open_orders"):
+            raw_orders = self.client.get_open_orders(self._open_order_params(asset_id=token_id))
+        else:
+            raw_orders = self.client.get_orders(self._open_order_params(asset_id=token_id))
         parsed: list[OpenOrder] = []
         for raw in raw_orders:
             try:
@@ -518,7 +528,7 @@ class PolymarketClobExchangeClient:
     def _get_balance_allowance(self, asset_type: Any, token_id: str | None = None) -> dict[str, float]:
         try:
             raw = self.client.get_balance_allowance(
-                params=self._balance_allowance_params(
+                self._balance_allowance_params(
                     asset_type=asset_type,
                     token_id=token_id,
                     signature_type=self.signature_type,
@@ -543,7 +553,7 @@ class PolymarketClobExchangeClient:
         """Sync balance allowance with the CLOB. Returns True on success."""
         try:
             self.client.update_balance_allowance(
-                params=self._balance_allowance_params(
+                self._balance_allowance_params(
                     asset_type=asset_type,
                     token_id=token_id,
                     signature_type=self.signature_type,
@@ -657,6 +667,18 @@ class PolymarketClobExchangeClient:
             return Side.SELL
         raise ValueError(f"Unknown side value: {value!r}")
 
+
+
+def _get_order_book_value(order_book: Any, key: str) -> Any:
+    if isinstance(order_book, dict):
+        return order_book.get(key)
+    return getattr(order_book, key)
+
+
+def _get_level_value(level: Any, key: str) -> Any:
+    if isinstance(level, dict):
+        return level.get(key)
+    return getattr(level, key)
 
 def _require_field(d: dict, key: str, aliases: list[str] | None = None) -> str:
     value = d.get(key)

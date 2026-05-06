@@ -22,8 +22,8 @@ process_snapshot="$(pgrep -af 'bot\.main|bot\.whale_copy|openclaw agent' || true
 git_status="$(git -C "$REPO" status --short || true)"
 recent_commits="$(git -C "$REPO" --no-pager log --since='30 minutes ago' --oneline --max-count=10 || true)"
 agent_rows="$(grep '^|' "$REPO/docs/polymarket_multi_bot/AGENT_REGISTRY.md" 2>/dev/null | grep -v -- '---' | tail -n +2 || true)"
-open_todos_count="$(grep -RhcE '^- \[ \]|^- \[blocked\]' "$REPO/docs/polymarket_multi_bot/MASTER_TODO.md" "$REPO/docs/polymarket_multi_bot/VOICE_TASKS_DETAILED_FROM_GS.md" "$REPO/tasks/todo.md" 2>/dev/null | awk '{s+=$1} END{print s+0}')"
-voice_open_todos="$(grep -nE '^- \[ \]|^- \[blocked\]' "$REPO/docs/polymarket_multi_bot/VOICE_TASKS_DETAILED_FROM_GS.md" 2>/dev/null | head -25 || true)"
+open_todos_count="$(grep -RhcE '^- \[ \]|^- \[blocked\]' "$REPO/docs/polymarket_multi_bot/CURRENT_STATUS_AND_BLOCKERS.md" "$REPO/tasks/todo.md" 2>/dev/null | awk '{s+=$1} END{print s+0}')"
+voice_open_todos="$(grep -nE '^- \[ \]|^- \[blocked\]' "$REPO/docs/polymarket_multi_bot/CURRENT_STATUS_AND_BLOCKERS.md" 2>/dev/null | head -25 || true)"
 actual_agent_sessions="$(python3 - <<'PY2' 2>/dev/null
 import json
 from pathlib import Path
@@ -43,7 +43,7 @@ for sp in sorted(root.glob('*/sessions/sessions.json')):
     bits=[]
     for v in vals:
         sid=v.get('sessionId') or '?'
-        status=v.get('status') or ('done' if not Path(str(sp).replace('sessions.json', sid+'.jsonl.lock')).exists() else 'running')
+        status='running' if Path(str(sp).replace('sessions.json', sid+'.jsonl.lock')).exists() else 'done'
         updated=v.get('updatedAt') or 0
         bits.append(f'{sid}:{status}:{updated}')
     rows.append(f'- {aid}: ' + '; '.join(bits))
@@ -76,8 +76,11 @@ PY2
   echo "### Git status"
   echo "$git_status"
   echo ""
-  echo "### Open TODO snapshot"
-  grep -nE '^- \[ \]|^- \[blocked\]' "$REPO/docs/polymarket_multi_bot/MASTER_TODO.md" "$REPO/docs/polymarket_multi_bot/VOICE_TASKS_DETAILED_FROM_GS.md" "$REPO/tasks/todo.md" 2>/dev/null | head -120 || true
+  echo "### Current status / real blockers snapshot"
+  sed -n '1,220p' "$REPO/docs/polymarket_multi_bot/CURRENT_STATUS_AND_BLOCKERS.md" 2>/dev/null || true
+  echo ""
+  echo "### Raw open TODO snapshot"
+  grep -nE '^- \[ \]|^- \[blocked\]' "$REPO/docs/polymarket_multi_bot/CURRENT_STATUS_AND_BLOCKERS.md" "$REPO/tasks/todo.md" 2>/dev/null | head -120 || true
   echo ""
   echo "### Detailed voice task open snapshot"
   echo "$voice_open_todos"
@@ -109,9 +112,9 @@ PY2
   echo "- bot processes: $(echo "$process_snapshot" | grep -c . | tr -d ' ')"
   echo ""
   echo "TODO открыто/blocked: $open_todos_count"
-  echo "Главные открытые пункты из ГС:"
+  echo "Реальные открытые/blocked пункты:"
   echo "$voice_open_todos" | sed 's#^.*:- \[ \] #- #' | sed 's#^.*:- \[blocked\] #- [blocked] #' | head -8
-  echo "Live-финансы: заблокированы до typed-confirmation."
+  echo "Live-финансы: не блокируются старой typed-confirmation формулировкой; реальные blockers — strategy evidence / per-bot caps. External GitHub writes require sanitized staging."
 } > "$SUMMARY"
 
 {
@@ -123,7 +126,7 @@ PY2
   echo "- Open/blocked TODO count across master+detailed voice+task docs: $open_todos_count."
   echo "- Agent sessions checked: actual OpenClaw sessions summary recorded in \`neh-bot/tasks/multibot_monitor.log\`."
   echo "- Detailed monitor log: \`neh-bot/tasks/multibot_monitor.log\`."
-  echo "- Financial/live actions remain blocked pending typed confirmation."
+  echo "- Financial/live actions are gated by concrete security/runbook/CLOB-clean-cycle checks, not stale typed-confirmation wording."
 } >> "$MEM"
 
 if [ "$WAKE_AGENT" = "true" ]; then

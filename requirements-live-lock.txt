@@ -1,0 +1,7 @@
+# Critical live-trading dependency hash pin reviewed 2026-05-04.
+# Install/check with: pip install --require-hashes -r requirements-live-lock.txt
+# This file intentionally covers the live CLOB V2 dependency only; the broader
+# app remains pinned in requirements.txt and should get a full lockfile before
+# larger production rollout.
+py-clob-client-v2==1.0.0 \
+    --hash=sha256:f9fa3315f154ceeb9e3084284a1bfc792df74f12b9441612e545a2480f603453

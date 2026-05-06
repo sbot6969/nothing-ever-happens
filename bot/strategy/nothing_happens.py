@@ -591,6 +591,9 @@ class NothingHappensRuntime:
             if state is None or loop_now >= state.next_check_monotonic:
                 due_markets.append(market)
 
+        due_market_count = len(due_markets)
+        cycle_markets = due_markets[: self.cfg.max_markets_per_cycle]
+
         logger.info(
             "nothing_happens_price_cycle",
             extra={
@@ -600,7 +603,8 @@ class NothingHappensRuntime:
                 "pending_markets": len(self._pending_entries_by_slug),
                 "target_open_positions": self._current_target_open_positions(),
                 "remaining_capacity": self._remaining_queue_capacity(),
-                "due_markets": len(due_markets),
+                "due_markets": due_market_count,
+                "cycle_markets": len(cycle_markets),
                 "cash_balance": self._cash_balance,
             },
         )
@@ -608,7 +612,7 @@ class NothingHappensRuntime:
         async def _check_market(market: StandaloneMarket) -> None:
             await self._evaluate_market(market)
 
-        await asyncio.gather(*(_check_market(market) for market in due_markets))
+        await asyncio.gather(*(_check_market(market) for market in cycle_markets))
         in_range_markets = self._in_range_market_count(eligible_markets)
 
         if self.portfolio_state is not None:

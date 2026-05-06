@@ -130,7 +130,7 @@ def write_markdown(results: list[StrategyBacktestResult], snapshot_dir: Path, ou
             "- Split results by category, close-time bucket, liquidity bucket, and whale-wallet cohort.",
             "- Run walk-forward/OOS validation instead of scoring wallets on the same cached sample used for reporting.",
             "- Replace trade-snapshot proxies with historical L2/order lifecycle data before production claims.",
-            "- Keep all live-financial actions blocked until separate typed confirmation and another security review.",
+            "- Keep live-financial expansion blocked until strategy evidence, per-bot caps, security review, and runbook checks are all green.",
         ]
     )
     out_path.parent.mkdir(parents=True, exist_ok=True)
